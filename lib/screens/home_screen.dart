@@ -1,9 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:alburdat_dashboard/services/mqtt_service.dart';
-import 'package:alburdat_dashboard/models/device_status.dart';
-import 'package:alburdat_dashboard/services/expert_system_service.dart';
-import 'package:alburdat_dashboard/models/commodity.dart';
+import 'package:alburdat_dashboard/widgets/dosis_card_widget.dart';
+import 'package:alburdat_dashboard/widgets/statistik_card_widget.dart';
+import 'package:alburdat_dashboard/widgets/rekomendasi_card_widget.dart';
+import 'package:alburdat_dashboard/widgets/manual_dosis_card_widget.dart';
+import 'package:alburdat_dashboard/widgets/wifi_settings_card_widget.dart';
+import 'package:alburdat_dashboard/screens/info_page.dart';
+import 'package:alburdat_dashboard/theme/theme.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -12,62 +17,112 @@ class HomeScreen extends StatefulWidget {
   State<HomeScreen> createState() => _HomeScreenState();
 }
 
-class _HomeScreenState extends State<HomeScreen> {
-  // Untuk rekomendasi
-  Commodity? _selectedCommodity;
-  final TextEditingController _hstController = TextEditingController();
-  double? _recommendedDosis;
-  String? _recommendationError;
+class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
+  late TabController _tabController;
 
-  // Untuk dosis manual
-  final TextEditingController _manualDosisController = TextEditingController();
+  @override
+  void initState() {
+    super.initState();
+    _tabController = TabController(length: 5, vsync: this);
+  }
+
+  @override
+  void dispose() {
+    _tabController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
     final mqtt = Provider.of<MqttService>(context);
 
     return Scaffold(
-      backgroundColor: Colors.grey[100],
+      backgroundColor: AppTheme.backgroundLight,
       appBar: AppBar(
-        title: const Text(
-          'Alburdat Presisi',
-          style: TextStyle(fontWeight: FontWeight.bold),
-        ),
-        elevation: 0,
-        backgroundColor: Colors.green,
-        foregroundColor: Colors.white,
-        actions: [_buildConnectionStatus(mqtt)],
-      ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16),
-        child: Column(
+        title: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Kartu Dosis Alat
-            _buildDosisCard(mqtt.latestStatus),
-            const SizedBox(height: 16),
-
-            // Kartu Statistik
-            _buildStatistikCard(mqtt.latestStatus, mqtt),
-            const SizedBox(height: 16),
-
-            // Rekomendasi Dosis Pupuk
-            _buildRekomendasiCard(mqtt),
-            const SizedBox(height: 16),
-
-            // Pengatur Dosis Manual
-            _buildManualDosisCard(mqtt),
-            const SizedBox(height: 16),
-
-            // Pengaturan WiFi
-            _buildWifiCard(mqtt),
+            Text(
+              'Alburdat Presisi',
+              style: Theme.of(context).textTheme.headlineSmall,
+            ),
+            Text(
+              'Dashboard Sistem Pengontrol Dosis',
+              style: Theme.of(
+                context,
+              ).textTheme.bodySmall?.copyWith(color: AppTheme.textGrey),
+            ),
+          ],
+        ),
+        elevation: 0,
+        backgroundColor: AppTheme.surfaceLight,
+        foregroundColor: AppTheme.textDark,
+        actions: [_buildConnectionStatus(mqtt)],
+      ),
+      body: TabBarView(
+        controller: _tabController,
+        children: [
+          // Tab 1: Dosis Alat
+          SingleChildScrollView(
+            padding: const EdgeInsets.all(AppTheme.spacingLG),
+            child: Column(
+              children: [
+                DosisCardWidget(status: mqtt.latestStatus),
+                const SizedBox(height: AppTheme.spacingXL),
+                StatistikCardWidget(status: mqtt.latestStatus, mqtt: mqtt),
+              ],
+            ),
+          ),
+          // Tab 2: Rekomendasi Dosis
+          SingleChildScrollView(
+            padding: const EdgeInsets.all(AppTheme.spacingLG),
+            child: RekomendasiCardWidget(mqtt: mqtt),
+          ),
+          // Tab 3: Dosis Manual
+          SingleChildScrollView(
+            padding: const EdgeInsets.all(AppTheme.spacingLG),
+            child: ManualDosisCardWidget(mqtt: mqtt),
+          ),
+          // Tab 4: WiFi Settings
+          SingleChildScrollView(
+            padding: const EdgeInsets.all(AppTheme.spacingLG),
+            child: WifiSettingsCardWidget(mqtt: mqtt),
+          ),
+          // Tab 5: Informasi
+          SingleChildScrollView(
+            padding: const EdgeInsets.all(AppTheme.spacingLG),
+            child: const InfoPage(),
+          ),
+        ],
+      ),
+      // Modern Bottom Navigation Bar
+      bottomNavigationBar: Container(
+        decoration: BoxDecoration(
+          color: AppTheme.surfaceLight,
+          boxShadow: AppTheme.shadowMD,
+        ),
+        child: TabBar(
+          controller: _tabController,
+          indicatorColor: AppTheme.primaryBlue,
+          labelColor: AppTheme.primaryBlue,
+          unselectedLabelColor: AppTheme.textGrey,
+          labelStyle: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.w600),
+          unselectedLabelStyle: GoogleFonts.plusJakartaSans(
+            fontWeight: FontWeight.w500,
+          ),
+          tabs: const [
+            Tab(icon: Icon(Icons.dashboard_rounded), text: 'Dashboard'),
+            Tab(icon: Icon(Icons.lightbulb_rounded), text: 'Rekomendasi'),
+            Tab(icon: Icon(Icons.handshake_rounded), text: 'Manual'),
+            Tab(icon: Icon(Icons.wifi_rounded), text: 'WiFi'),
+            Tab(icon: Icon(Icons.info_rounded), text: 'Info'),
           ],
         ),
       ),
     );
   }
 
-  // Indikator status koneksi
+  // Connection status indicator
   Widget _buildConnectionStatus(MqttService mqtt) {
     String statusText;
     Color color;
@@ -75,471 +130,65 @@ class _HomeScreenState extends State<HomeScreen> {
 
     if (mqtt.isConnecting) {
       statusText = 'Menghubungkan...';
-      color = Colors.orange;
+      color = AppTheme.warningColor;
       icon = Icons.sync;
     } else if (mqtt.isEspOnline) {
       statusText = 'ESP Online';
-      color = Colors.green;
+      color = AppTheme.successColor;
       icon = Icons.wifi;
     } else if (mqtt.isConnected) {
       statusText = 'Broker OK';
-      color = Colors.orange;
+      color = AppTheme.warningColor;
       icon = Icons.cloud;
     } else {
       statusText = 'Offline';
-      color = Colors.red;
+      color = AppTheme.errorColor;
       icon = Icons.wifi_off;
     }
 
-    return Row(
-      children: [
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-          decoration: BoxDecoration(
-            color: color.withValues(alpha: 0.2),
-            borderRadius: BorderRadius.circular(20),
-          ),
-          child: Row(
-            children: [
-              Icon(icon, size: 16, color: color),
-              const SizedBox(width: 4),
-              Text(
-                statusText,
-                style: TextStyle(color: color, fontWeight: FontWeight.w500),
-              ),
-            ],
-          ),
-        ),
-        const SizedBox(width: 8),
-        if (!mqtt.isConnected && !mqtt.isConnecting) ...[
-          Tooltip(
-            message: 'Hubungkan ulang ke broker',
-            child: IconButton(
-              onPressed: () {
-                mqtt.connect();
-                _showFeedback('Menghubungkan kembali ke broker...');
-              },
-              icon: const Icon(Icons.refresh, color: Colors.blue, size: 20),
-              padding: EdgeInsets.zero,
-              constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
-              tooltip: 'Reconnect',
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: AppTheme.spacingLG),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.symmetric(
+              horizontal: AppTheme.spacingMD,
+              vertical: AppTheme.spacingSM,
             ),
-          ),
-        ],
-      ],
-    );
-  }
-
-  // Kartu Dosis Alat
-  Widget _buildDosisCard(DeviceStatus? status) {
-    final dosis = status?.gramasi ?? 0.0;
-    return Card(
-      elevation: 2,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text(
-              'Dosis Alat',
-              style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+            decoration: BoxDecoration(
+              color: color.withValues(alpha: 0.15),
+              borderRadius: BorderRadius.circular(AppTheme.radiusMD),
+              border: Border.all(color: color.withValues(alpha: 0.3)),
             ),
-            const SizedBox(height: 8),
-            Center(
-              child: Text(
-                '${dosis.toStringAsFixed(2)} gram',
-                style: const TextStyle(
-                  fontSize: 36,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.green,
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  // Kartu Statistik dengan tombol reset
-  Widget _buildStatistikCard(DeviceStatus? status, MqttService mqtt) {
-    final totalVolume = status?.totalVolume ?? 0.0;
-    final rataRata = status?.rataRata ?? 0.0;
-    final totalSesi = status?.totalSesi ?? 0;
-
-    return Card(
-      elevation: 2,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceAround,
+            child: Row(
               children: [
-                _buildStatItem(
-                  'Total Volume',
-                  '${totalVolume.toStringAsFixed(2)} g',
+                Icon(icon, size: 16, color: color),
+                const SizedBox(width: AppTheme.spacingSM),
+                Text(
+                  statusText,
+                  style: Theme.of(
+                    context,
+                  ).textTheme.labelMedium?.copyWith(color: color),
                 ),
-                _buildStatItem('Rata-rata', '${rataRata.toStringAsFixed(2)} g'),
-                _buildStatItem('Total Sesi', '$totalSesi'),
               ],
             ),
-            const Divider(height: 24),
-            Align(
-              alignment: Alignment.centerRight,
-              child: ElevatedButton.icon(
-                onPressed: () => _showResetStatsDialog(mqtt),
-                icon: const Icon(Icons.restart_alt),
-                label: const Text('Reset Statistik'),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.orange,
-                  foregroundColor: Colors.white,
-                ),
+          ),
+          if (!mqtt.isConnected && !mqtt.isConnecting) ...[
+            const SizedBox(width: AppTheme.spacingMD),
+            Tooltip(
+              message: 'Hubungkan ulang ke broker',
+              child: IconButton(
+                onPressed: () {
+                  mqtt.connect();
+                  _showFeedback('Menghubungkan kembali ke broker...');
+                },
+                icon: const Icon(Icons.refresh_rounded, size: 20),
+                padding: const EdgeInsets.all(AppTheme.spacingSM),
+                constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
+                tooltip: 'Reconnect',
               ),
             ),
           ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildStatItem(String label, String value) {
-    return Column(
-      children: [
-        Text(
-          value,
-          style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-        ),
-        Text(label, style: const TextStyle(fontSize: 12, color: Colors.grey)),
-      ],
-    );
-  }
-
-  // Dialog konfirmasi reset statistik
-  void _showResetStatsDialog(MqttService mqtt) {
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Reset Statistik'),
-        content: const Text('Yakin ingin mereset semua statistik?'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('Batal'),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              Navigator.pop(ctx);
-              if (!mqtt.isEspOnline) {
-                _showFeedback('ESP tidak aktif', isError: true);
-                return;
-              }
-              mqtt.resetStats();
-              _showFeedback('Perintah reset statistik terkirim');
-            },
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.orange),
-            child: const Text('Reset'),
-          ),
-        ],
-      ),
-    );
-  }
-
-  // Kartu Rekomendasi Dosis
-  Widget _buildRekomendasiCard(MqttService mqtt) {
-    final commodities = ExpertSystemService.getAllCommodities();
-
-    return Card(
-      elevation: 2,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text(
-              'Rekomendasi Dosis Pupuk',
-              style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
-            ),
-            const SizedBox(height: 16),
-            // Dropdown komoditas
-            DropdownButtonFormField<Commodity>(
-              initialValue: _selectedCommodity,
-              hint: const Text('-- pilih komoditas --'),
-              isExpanded: true,
-              items: commodities.map((c) {
-                return DropdownMenuItem<Commodity>(
-                  value: c,
-                  child: Text(c.name),
-                );
-              }).toList(),
-              onChanged: (val) {
-                setState(() {
-                  _selectedCommodity = val;
-                  _recommendedDosis = null; // reset hasil
-                });
-              },
-              decoration: const InputDecoration(
-                border: OutlineInputBorder(),
-                contentPadding: EdgeInsets.symmetric(
-                  horizontal: 12,
-                  vertical: 8,
-                ),
-              ),
-            ),
-            const SizedBox(height: 12),
-            // Input HST
-            TextField(
-              controller: _hstController,
-              keyboardType: TextInputType.number,
-              decoration: const InputDecoration(
-                labelText: 'Umur Tanaman (HST)',
-                border: OutlineInputBorder(),
-                contentPadding: EdgeInsets.symmetric(
-                  horizontal: 12,
-                  vertical: 8,
-                ),
-              ),
-            ),
-            const SizedBox(height: 12),
-            // Tombol Hitung
-            ElevatedButton(
-              onPressed: _hitungRekomendasi,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.green,
-                foregroundColor: Colors.white,
-                minimumSize: const Size(double.infinity, 45),
-              ),
-              child: const Text('Hitung Rekomendasi'),
-            ),
-            const SizedBox(height: 8),
-            // Hasil rekomendasi (jika ada)
-            if (_recommendationError != null)
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: Colors.red.withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Text(
-                  _recommendationError!,
-                  style: const TextStyle(color: Colors.red),
-                ),
-              ),
-            if (_recommendedDosis != null)
-              Container(
-                margin: const EdgeInsets.only(top: 8),
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: Colors.green.withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text('Dosis Rekomendasi:'),
-                        Text(
-                          '${_recommendedDosis!.toStringAsFixed(2)} gram',
-                          style: const TextStyle(
-                            fontSize: 20,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.green,
-                          ),
-                        ),
-                      ],
-                    ),
-                    ElevatedButton(
-                      onPressed: () {
-                        if (mqtt.isEspOnline) {
-                          mqtt.setDosis(_recommendedDosis!);
-                          _showFeedback('Dosis rekomendasi terkirim ke alat');
-                        } else {
-                          _showFeedback('ESP tidak aktif', isError: true);
-                        }
-                      },
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.green,
-                        foregroundColor: Colors.white,
-                      ),
-                      child: const Text('Kirim'),
-                    ),
-                  ],
-                ),
-              ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  void _hitungRekomendasi() {
-    setState(() {
-      _recommendationError = null;
-      _recommendedDosis = null;
-    });
-
-    if (_selectedCommodity == null) {
-      setState(() {
-        _recommendationError = 'Pilih komoditas terlebih dahulu';
-      });
-      return;
-    }
-
-    final hstText = _hstController.text;
-    if (hstText.isEmpty) {
-      setState(() {
-        _recommendationError = 'Masukkan HST';
-      });
-      return;
-    }
-
-    final hst = int.tryParse(hstText);
-    if (hst == null || hst < 0) {
-      setState(() {
-        _recommendationError = 'HST harus berupa angka positif';
-      });
-      return;
-    }
-
-    final dosis = ExpertSystemService.getDosis(
-      commodityId: _selectedCommodity!.id,
-      hst: hst,
-    );
-
-    if (dosis == null) {
-      setState(() {
-        _recommendationError = 'Tidak ada rekomendasi untuk HST tersebut';
-      });
-    } else {
-      setState(() {
-        _recommendedDosis = dosis;
-      });
-    }
-  }
-
-  // Kartu Pengatur Dosis Manual
-  Widget _buildManualDosisCard(MqttService mqtt) {
-    return Card(
-      elevation: 2,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text(
-              'Pengatur Dosis Manual',
-              style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
-            ),
-            const SizedBox(height: 16),
-            TextField(
-              controller: _manualDosisController,
-              keyboardType: TextInputType.number,
-              decoration: const InputDecoration(
-                labelText: 'Masukkan Dosis Khusus (gram)',
-                border: OutlineInputBorder(),
-                contentPadding: EdgeInsets.symmetric(
-                  horizontal: 12,
-                  vertical: 8,
-                ),
-              ),
-            ),
-            const SizedBox(height: 12),
-            ElevatedButton(
-              onPressed: () {
-                final text = _manualDosisController.text;
-                final dosis = double.tryParse(text);
-                if (dosis == null || dosis <= 0) {
-                  _showFeedback('Masukkan dosis yang valid', isError: true);
-                  return;
-                }
-                if (!mqtt.isEspOnline) {
-                  _showFeedback('ESP tidak aktif', isError: true);
-                  return;
-                }
-                mqtt.setDosis(dosis);
-                _showFeedback('Dosis $dosis gram terkirim');
-                _manualDosisController.clear();
-              },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.blue,
-                foregroundColor: Colors.white,
-                minimumSize: const Size(double.infinity, 45),
-              ),
-              child: const Text('Terapkan Dosis'),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  // Kartu Pengaturan WiFi
-  Widget _buildWifiCard(MqttService mqtt) {
-    return Card(
-      elevation: 2,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text(
-              'Pengaturan Wi-Fi',
-              style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
-            ),
-            const SizedBox(height: 8),
-            const Text(
-              'Gunakan fitur ini jika anda ingin memindahkan koneksi WiFi alat ke jaringan WiFi lain. Koneksi Alat akan terputus. Sambungkan handphone anda ke WiFi “ALBURDAT_CONFIG” dan akses browser 192.168.4.1 untuk mengatur koneksi WiFi baru.',
-              style: TextStyle(fontSize: 12, color: Colors.grey),
-            ),
-            const SizedBox(height: 16),
-            ElevatedButton(
-              onPressed: () => _showResetWifiDialog(mqtt),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.red,
-                foregroundColor: Colors.white,
-                minimumSize: const Size(double.infinity, 45),
-              ),
-              child: const Text('Reset WiFi Alat'),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  void _showResetWifiDialog(MqttService mqtt) {
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Reset WiFi'),
-        content: const Text(
-          'Alat akan mereset koneksi WiFi dan restart. Lanjutkan?',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('Batal'),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              Navigator.pop(ctx);
-              if (!mqtt.isEspOnline) {
-                _showFeedback('ESP tidak aktif', isError: true);
-                return;
-              }
-              mqtt.resetWifi();
-              _showFeedback('Perintah reset WiFi terkirim');
-            },
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
-            child: const Text('Reset'),
-          ),
         ],
       ),
     );
@@ -550,9 +199,12 @@ class _HomeScreenState extends State<HomeScreen> {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(message),
-        backgroundColor: isError ? Colors.red : Colors.green,
+        backgroundColor: isError ? AppTheme.errorColor : AppTheme.successColor,
         behavior: SnackBarBehavior.floating,
         duration: const Duration(seconds: 2),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(AppTheme.radiusMD),
+        ),
       ),
     );
   }

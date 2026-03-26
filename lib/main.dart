@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:alburdat_dashboard/services/mqtt_service.dart';
-import 'package:alburdat_dashboard/screens/main_screen.dart';
+import 'package:alburdat_dashboard/screens/main_navigation_screen.dart';
 import 'package:alburdat_dashboard/theme/theme.dart';
 
 void main() {
@@ -20,7 +20,7 @@ class MyApp extends StatelessWidget {
       child: MaterialApp(
         title: 'ALBURDAT Dashboard',
         theme: AppTheme.lightTheme,
-        home: const MainScreen(),
+        home: const MainNavigationScreen(),
       ),
     );
   }
