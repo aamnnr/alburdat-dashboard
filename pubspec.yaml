@@ -43,6 +43,9 @@ dependencies:
   fl_chart: ^1.1.1
   intl: 0.20.2
 
+  splash_master: ^0.0.3
+  video_player: ^2.9.3
+
 dev_dependencies:
   flutter_test:
     sdk: flutter
@@ -67,9 +70,9 @@ flutter:
   uses-material-design: true
 
   # To add assets to your application, add an assets section, like this:
-  # assets:
-  #   - images/a_dot_burr.jpeg
-  #   - images/a_dot_ham.jpeg
+  assets:
+    - assets/icon/
+    - assets/videos/
 
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/to/resolution-aware-images
@@ -98,8 +101,11 @@ flutter:
   # see https://flutter.dev/to/font-from-package
 
 flutter_launcher_icons:
-  android: true          # true untuk membuat icon Android
-  ios: true              # true untuk membuat icon iOS
-  image_path: "assets/icon/icon.png"   # path ke gambar logo utama Anda
-  adaptive_icon_background: "#FFFFFF"  # warna background untuk icon adaptive Android
+  android: true # true untuk membuat icon Android
+  ios: true # true untuk membuat icon iOS
+  image_path: "assets/icon/icon.png" # path ke gambar logo utama Anda
+  adaptive_icon_background: "#FFFFFF" # warna background untuk icon adaptive Android
   adaptive_icon_foreground: "assets/icon/icon.png" # gambar untuk foreground icon adaptive
+
+splash_master:
+  color: "#FFFFFF"
