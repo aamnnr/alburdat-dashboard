@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:alburdat_dashboard/services/mqtt_service.dart';
 import 'package:alburdat_dashboard/theme/theme.dart';
+import 'package:alburdat_dashboard/screens/home_screen.dart';
 
 void main() {
   runApp(const MyApp());
@@ -17,7 +18,7 @@ class MyApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => MqttService()..connect()),
       ],
       child: MaterialApp(
-        title: 'ALBURDAT Dashboard',
+        title: 'FERTICORE AI Dashboard',
         theme: AppTheme.lightTheme,
         home: const HomeScreen(),
       ),

@@ -19,9 +19,7 @@ class InfoPage extends StatelessWidget {
             Text('Informasi', style: Theme.of(context).textTheme.headlineSmall),
             Text(
               'Tentang aplikasi dan status sistem',
-              style: Theme.of(
-                context,
-              ).textTheme.bodySmall?.copyWith(color: AppTheme.textGrey),
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(color: AppTheme.textGrey),
             ),
           ],
         ),
@@ -30,72 +28,29 @@ class InfoPage extends StatelessWidget {
         foregroundColor: AppTheme.textDark,
       ),
       body: SingleChildScrollView(
-        padding: const EdgeInsets.all(AppTheme.spacingLG),
+        padding: const EdgeInsets.all(16), // beri padding merata
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // App Description
-            Container(
-              padding: const EdgeInsets.all(AppTheme.spacingLG),
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(AppTheme.radiusLG),
-                border: Border.all(color: AppTheme.borderColor),
-                color: AppTheme.primaryBlue.withValues(alpha: 0.05),
-              ),
-              child: Row(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(AppTheme.spacingMD),
-                    decoration: BoxDecoration(
-                      color: AppTheme.primaryBlue.withValues(alpha: 0.2),
-                      borderRadius: BorderRadius.circular(AppTheme.radiusMD),
-                    ),
-                    child: const Icon(
-                      Icons.info_rounded,
-                      color: AppTheme.primaryBlue,
-                      size: 24,
-                    ),
-                  ),
-                  const SizedBox(width: AppTheme.spacingLG),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'ALBURDAT Presisi',
-                          style: Theme.of(context).textTheme.titleLarge,
-                        ),
-                        const SizedBox(height: AppTheme.spacingSM),
-                        Text(
-                          'Sistem kontrol dan monitoring alat tabur pupuk berbasis IoT',
-                          style: Theme.of(context).textTheme.bodySmall
-                              ?.copyWith(color: AppTheme.textGrey),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            ),
+            // ================= APP INFO =================
+            _appInfo(context),
+
             const SizedBox(height: AppTheme.spacingXL),
 
-            // Main Features
+            // ================= FEATURES =================
             Text('Fitur Utama', style: Theme.of(context).textTheme.titleLarge),
             const SizedBox(height: AppTheme.spacingLG),
             ..._buildFeatures(context),
+
             const SizedBox(height: AppTheme.spacingXL),
 
-            // System Status
-            Text(
-              'Status Sistem',
-              style: Theme.of(context).textTheme.titleLarge,
-            ),
+            // ================= STATUS =================
+            Text('Status Sistem', style: Theme.of(context).textTheme.titleLarge),
             const SizedBox(height: AppTheme.spacingLG),
             Row(
               children: [
                 Expanded(
                   child: _buildStatusCard(
-                    context: context,
                     title: 'MQTT Broker',
                     status: mqtt.isConnected ? 'Terhubung' : 'Tidak Terhubung',
                     isActive: mqtt.isConnected,
@@ -105,7 +60,6 @@ class InfoPage extends StatelessWidget {
                 const SizedBox(width: AppTheme.spacingLG),
                 Expanded(
                   child: _buildStatusCard(
-                    context: context,
                     title: 'ESP Device',
                     status: mqtt.isEspOnline ? 'Online' : 'Offline',
                     isActive: mqtt.isEspOnline,
@@ -114,48 +68,14 @@ class InfoPage extends StatelessWidget {
                 ),
               ],
             ),
+
             const SizedBox(height: AppTheme.spacingXL),
 
-            // Version Info
-            Container(
-              padding: const EdgeInsets.all(AppTheme.spacingLG),
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(AppTheme.radiusLG),
-                border: Border.all(color: AppTheme.borderColor),
-                color: Colors.grey.shade50,
-              ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Versi Aplikasi',
-                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: AppTheme.textGrey,
-                        ),
-                      ),
-                      const SizedBox(height: AppTheme.spacingSM),
-                      Text(
-                        '1.0.0',
-                        style: GoogleFonts.plusJakartaSans(
-                          fontSize: 18,
-                          fontWeight: FontWeight.w700,
-                          color: AppTheme.textDark,
-                        ),
-                      ),
-                    ],
-                  ),
-                  Icon(
-                    Icons.done_all_rounded,
-                    color: AppTheme.successColor,
-                    size: 28,
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: AppTheme.spacingXL),
+            // ================= VERSION =================
+            _versionCard(context),
+
+            // Tidak ada Spacer atau apapun, scroll alami
+            const SizedBox(height: 24), // sedikit ruang bawah opsional
           ],
         ),
       ),
@@ -163,83 +83,92 @@ class InfoPage extends StatelessWidget {
     );
   }
 
+  Widget _appInfo(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(AppTheme.spacingLG),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(AppTheme.radiusLG),
+        border: Border.all(color: AppTheme.borderColor),
+        color: AppTheme.primaryBlue.withValues(alpha: 0.05),
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(AppTheme.spacingMD),
+            decoration: BoxDecoration(
+              color: AppTheme.primaryBlue.withValues(alpha: 0.2),
+              borderRadius: BorderRadius.circular(AppTheme.radiusMD),
+            ),
+            child: const Icon(Icons.info_rounded, color: AppTheme.primaryBlue, size: 24),
+          ),
+          const SizedBox(width: AppTheme.spacingLG),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('FERTICORE AI', style: Theme.of(context).textTheme.titleLarge),
+                const SizedBox(height: AppTheme.spacingSM),
+                Text(
+                  'Sistem kontrol dan monitoring alat tabur pupuk berbasis IoT',
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(color: AppTheme.textGrey),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   List<Widget> _buildFeatures(BuildContext context) {
     final features = [
-      (
-        'Monitoring Dosis',
-        'Pantau dosis pupuk secara real-time',
-        Icons.monitor_heart_rounded,
-      ),
-      (
-        'Rekomendasi',
-        'Hitung dosis berdasarkan jenis komoditas',
-        Icons.lightbulb_rounded,
-      ),
-      (
-        'Kontrol Manual',
-        'Terapkan dosis sesuai kebutuhan spesifik',
-        Icons.touch_app_rounded,
-      ),
-      (
-        'Pengaturan WiFi',
-        'Kelola koneksi jaringan dengan mudah',
-        Icons.wifi_rounded,
-      ),
-      (
-        'Statistik',
-        'Lihat laporan penggunaan dan analisis',
-        Icons.bar_chart_rounded,
-      ),
+      ('Monitoring Dosis', 'Pantau dosis pupuk secara real-time', Icons.monitor_heart_rounded),
+      ('Rekomendasi', 'Hitung dosis berbasis AI agronomi', Icons.lightbulb_rounded),
+      ('Kontrol Manual', 'Atur dosis sesuai kebutuhan', Icons.touch_app_rounded),
+      ('Pengaturan WiFi', 'Kelola koneksi jaringan', Icons.wifi_rounded),
+      ('Statistik', 'Analisis penggunaan sistem', Icons.bar_chart_rounded),
     ];
 
     return features.map((feature) {
-      return Padding(
-        padding: const EdgeInsets.only(bottom: AppTheme.spacingLG),
-        child: Container(
-          padding: const EdgeInsets.all(AppTheme.spacingLG),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(AppTheme.radiusMD),
-            border: Border.all(color: AppTheme.borderColor),
-            color: AppTheme.surfaceLight,
-          ),
-          child: Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(AppTheme.spacingMD),
-                decoration: BoxDecoration(
-                  color: AppTheme.primaryBlue.withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(AppTheme.radiusMD),
-                ),
-                child: Icon(feature.$3, color: AppTheme.primaryBlue, size: 20),
+      return Container(
+        margin: const EdgeInsets.only(bottom: AppTheme.spacingLG),
+        padding: const EdgeInsets.all(AppTheme.spacingLG),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(AppTheme.radiusMD),
+          border: Border.all(color: AppTheme.borderColor),
+          color: AppTheme.surfaceLight,
+        ),
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(AppTheme.spacingMD),
+              decoration: BoxDecoration(
+                color: AppTheme.primaryBlue.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(AppTheme.radiusMD),
               ),
-              const SizedBox(width: AppTheme.spacingLG),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      feature.$1,
-                      style: Theme.of(context).textTheme.titleSmall,
-                    ),
-                    const SizedBox(height: AppTheme.spacingSM),
-                    Text(
-                      feature.$2,
-                      style: Theme.of(
-                        context,
-                      ).textTheme.bodySmall?.copyWith(color: AppTheme.textGrey),
-                    ),
-                  ],
-                ),
+              child: Icon(feature.$3, color: AppTheme.primaryBlue, size: 20),
+            ),
+            const SizedBox(width: AppTheme.spacingLG),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(feature.$1, style: Theme.of(context).textTheme.titleSmall),
+                  const SizedBox(height: AppTheme.spacingSM),
+                  Text(
+                    feature.$2,
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(color: AppTheme.textGrey),
+                  ),
+                ],
               ),
-            ],
-          ),
+            ),
+          ],
         ),
       );
     }).toList();
   }
 
   Widget _buildStatusCard({
-    required BuildContext context,
     required String title,
     required String status,
     required bool isActive,
@@ -254,38 +183,38 @@ class InfoPage extends StatelessWidget {
               ? AppTheme.successColor.withValues(alpha: 0.3)
               : AppTheme.errorColor.withValues(alpha: 0.3),
         ),
-        color: isActive
-            ? AppTheme.successColor.withValues(alpha: 0.05)
-            : AppTheme.errorColor.withValues(alpha: 0.05),
       ),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            children: [
-              Icon(
-                icon,
-                color: isActive ? AppTheme.successColor : AppTheme.errorColor,
-                size: 20,
-              ),
-              const SizedBox(width: AppTheme.spacingSM),
-              Text(
-                title,
-                style: Theme.of(
-                  context,
-                ).textTheme.bodySmall?.copyWith(color: AppTheme.textGrey),
-              ),
-            ],
-          ),
-          const SizedBox(height: AppTheme.spacingMD),
+          Icon(icon, color: isActive ? AppTheme.successColor : AppTheme.errorColor, size: 32),
+          const SizedBox(height: 8),
+          Text(title, style: const TextStyle(fontWeight: FontWeight.w600)),
+          const SizedBox(height: 4),
           Text(
             status,
-            style: GoogleFonts.plusJakartaSans(
-              fontSize: 16,
-              fontWeight: FontWeight.w700,
+            style: TextStyle(
+              fontWeight: FontWeight.bold,
               color: isActive ? AppTheme.successColor : AppTheme.errorColor,
             ),
           ),
+        ],
+      ),
+    );
+  }
+
+  Widget _versionCard(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(AppTheme.spacingLG),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(AppTheme.radiusLG),
+        border: Border.all(color: AppTheme.borderColor),
+        color: Colors.grey.shade50,
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text('Versi Aplikasi', style: Theme.of(context).textTheme.bodySmall),
+          Text('1.0.0', style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.w700)),
         ],
       ),
     );

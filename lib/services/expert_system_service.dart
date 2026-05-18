@@ -1,36 +1,43 @@
 import 'package:alburdat_dashboard/data/knowledge_base.dart';
-import 'package:alburdat_dashboard/models/commodity.dart';
+import 'package:alburdat_dashboard/models/calculation_input.dart';
+import 'package:alburdat_dashboard/models/calculation_result.dart';
 
 class ExpertSystemService {
-  static double? getDosis({required int commodityId, required int hst}) {
+  static double getBaseDosis(int commodityId, double hst) {
     final rules = knowledgeBase[commodityId];
-    if (rules == null) return null;
+    if (rules == null) throw Exception("Commodity tidak ditemukan");
 
-    for (final rule in rules) {
-      if (rule.matches(hst)) {
-        return rule.dosis;
-      }
-    }
-    return null;
-  }
-
-  static double getRecommendedDosis(Commodity commodity, double hst) {
-    final dosis = getDosis(commodityId: commodity.id, hst: hst.toInt());
-    if (dosis != null) return dosis;
-    throw Exception(
-      'Tidak ada rekomendasi dosis untuk komoditas ${commodity.name} pada HST ${hst.toInt()}',
+    final rule = rules.firstWhere(
+      (r) => hst >= r.minHst && hst <= r.maxHst,
+      orElse: () => rules.last,
     );
+
+    return rule.dosis;
   }
 
-  static List<Commodity> getAllCommodities() {
-    return commodities;
+  static double calculateDosisPerTanaman(
+    int commodityId,
+    double hst,
+    int fertilizerId,
+  ) {
+    final base = getBaseDosis(commodityId, hst);
+    final multiplier = fertilizerMultipliers[fertilizerId] ?? 1.0;
+
+    return base * multiplier;
   }
 
-  static String? getCommodityName(int id) {
-    try {
-      return commodities.firstWhere((c) => c.id == id).name;
-    } catch (e) {
-      return null;
-    }
+  static CalculationResult calculate(CalculationInput input) {
+    final dosisPerTanaman = calculateDosisPerTanaman(
+      input.commodityId,
+      input.hst,
+      input.fertilizerId,
+    );
+
+    final totalGram = dosisPerTanaman * input.jumlahTanaman;
+
+    return CalculationResult(
+      dosisPerTanaman: dosisPerTanaman,
+      totalPupukGram: totalGram,
+    );
   }
 }

@@ -160,7 +160,7 @@ Jika ada ✗, ikuti saran yang diberikan.
 
 ```bash
 # Clone repository
-git clone <repository-url>
+git clone https://github.com/aamnnr/alburdat-dashboard.git
 cd alburdat_dashboard
 
 # Install dependencies

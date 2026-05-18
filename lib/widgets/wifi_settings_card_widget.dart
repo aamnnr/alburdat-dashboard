@@ -57,7 +57,7 @@ class _WifiSettingsCardWidgetState extends State<WifiSettingsCardWidget> {
               ),
               const SizedBox(height: AppTheme.spacingMD),
               Text(
-                'Tindakan ini akan mereset koneksi WiFi dan alat akan restart. Anda perlu menghubungkan ke WiFi "ALBURDAT_CONFIG" dan konfigurasi ulang jaringan WiFi.',
+                'Tindakan ini akan mereset koneksi WiFi dan alat akan restart. Anda perlu menghubungkan ke WiFi "FERTICORE_CONFIG" dengan password "petanisukses" dan konfigurasi ulang jaringan WiFi.',
                 textAlign: TextAlign.center,
                 style: Theme.of(
                   context,
@@ -189,7 +189,7 @@ class _WifiSettingsCardWidgetState extends State<WifiSettingsCardWidget> {
                 const SizedBox(height: AppTheme.spacingSM),
                 _buildListItem(
                   '2.',
-                  'Sambungkan perangkat ke WiFi "ALBURDAT_CONFIG"',
+                  'Sambungkan perangkat ke WiFi "FERTICORE_CONFIG", password: "petanisukses"',
                 ),
                 const SizedBox(height: AppTheme.spacingSM),
                 _buildListItem('3.', 'Buka browser dan akses 192.168.4.1'),

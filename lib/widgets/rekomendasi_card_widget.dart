@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:alburdat_dashboard/models/commodity.dart';
+import 'package:alburdat_dashboard/models/fertilizer.dart';
+import 'package:alburdat_dashboard/models/calculation_input.dart';
+import 'package:alburdat_dashboard/models/calculation_result.dart';
 import 'package:alburdat_dashboard/services/expert_system_service.dart';
+import 'package:alburdat_dashboard/data/knowledge_base.dart';
 import 'package:alburdat_dashboard/services/mqtt_service.dart';
 import 'package:alburdat_dashboard/theme/theme.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 class RekomendasiCardWidget extends StatefulWidget {
   final MqttService mqtt;
@@ -11,80 +14,34 @@ class RekomendasiCardWidget extends StatefulWidget {
   const RekomendasiCardWidget({super.key, required this.mqtt});
 
   @override
-  State<RekomendasiCardWidget> createState() => _RekomendasiCardWidgetState();
+  State<RekomendasiCardWidget> createState() =>
+      _RekomendasiCardWidgetState();
 }
 
 class _RekomendasiCardWidgetState extends State<RekomendasiCardWidget> {
-  Commodity? _selectedCommodity;
-  final TextEditingController _hstController = TextEditingController();
-  double? _recommendedDosis;
-  String? _recommendationError;
-  bool _isCalculating = false;
-  bool _isSending = false;
+  Commodity? _commodity;
+  Fertilizer? _fertilizer;
 
-  @override
-  void dispose() {
-    _hstController.dispose();
-    super.dispose();
-  }
+  final TextEditingController _hst = TextEditingController();
+  final TextEditingController _luas = TextEditingController();
 
-  void _hitungRekomendasi() async {
-    setState(() => _isCalculating = true);
-    await Future.delayed(const Duration(milliseconds: 300));
+  int? _minTanaman;
+  int? _maxTanaman;
+  int? _selectedTanaman;
 
-    if (_selectedCommodity == null) {
-      setState(() {
-        _recommendationError = 'Pilih komoditas terlebih dahulu';
-        _recommendedDosis = null;
-        _isCalculating = false;
-      });
-      return;
-    }
+  bool _showSlider = false;
 
-    final hstText = _hstController.text.trim();
-    if (hstText.isEmpty) {
-      setState(() {
-        _recommendationError = 'Masukkan umur tanaman (HST)';
-        _recommendedDosis = null;
-        _isCalculating = false;
-      });
-      return;
-    }
+  CalculationResult? _result;
 
-    final hst = double.tryParse(hstText);
-    if (hst == null || hst <= 0) {
-      setState(() {
-        _recommendationError = 'Umur tanaman harus berupa angka positif';
-        _recommendedDosis = null;
-        _isCalculating = false;
-      });
-      return;
-    }
-
-    try {
-      final dosis = ExpertSystemService.getRecommendedDosis(
-        _selectedCommodity!,
-        hst,
-      );
-      setState(() {
-        _recommendedDosis = dosis;
-        _recommendationError = null;
-        _isCalculating = false;
-      });
-    } catch (e) {
-      setState(() {
-        _recommendationError = e.toString();
-        _recommendedDosis = null;
-        _isCalculating = false;
-      });
-    }
-  }
-
-  void _showFeedback(String message, {bool isError = false}) {
+  // =========================
+  // FEEDBACK
+  // =========================
+  void _showMessage(String message, {bool error = false}) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(message),
-        backgroundColor: isError ? AppTheme.errorColor : AppTheme.successColor,
+        // Perbaikan: gunakan 'error' bukan 'isError'
+        backgroundColor: error ? AppTheme.errorColor : AppTheme.successColor,
         behavior: SnackBarBehavior.floating,
         duration: const Duration(seconds: 2),
         shape: RoundedRectangleBorder(
@@ -94,277 +51,316 @@ class _RekomendasiCardWidgetState extends State<RekomendasiCardWidget> {
     );
   }
 
-  void _kirimDosis() async {
-    setState(() => _isSending = true);
+  // =========================
+  // AI EXPLANATION
+  // =========================
+  String _generateExplanation() {
+    return "AI menganalisis komoditas ${_commodity?.name}, "
+        "HST ${_hst.text}, luas lahan ${_luas.text} m² "
+        "untuk menghasilkan rekomendasi dosis pupuk optimal.";
+  }
 
-    if (!widget.mqtt.isEspOnline) {
-      _showFeedback('ESP tidak aktif', isError: true);
-      setState(() => _isSending = false);
+  // =========================
+  // RANGE TANAMAN
+  // =========================
+  void _generateRange() {
+    if (_commodity == null) return;
+
+    final luas = double.tryParse(_luas.text);
+    if (luas == null || luas <= 0) return;
+
+    final base =
+        luas / (_commodity!.jarakTanam * _commodity!.jarakTanam);
+
+    setState(() {
+      _minTanaman = (base * 0.9).floor();
+      _maxTanaman = (base * 1.1).ceil();
+      _selectedTanaman = _minTanaman;
+      _showSlider = true;
+    });
+  }
+
+  // =========================
+  // HITUNG DOSIS
+  // =========================
+  void _calculate() {
+    final hst = double.tryParse(_hst.text);
+
+    if (_commodity == null) {
+      _showMessage("Pilih komoditas terlebih dahulu", error: true);
       return;
     }
 
-    if (_recommendedDosis != null) {
-      widget.mqtt.setDosis(_recommendedDosis!);
-      _showFeedback(
-        'Dosis ${_recommendedDosis!.toStringAsFixed(2)} gram telah dikirim ke alat',
-      );
-      await Future.delayed(const Duration(milliseconds: 500));
+    if (_fertilizer == null) {
+      _showMessage("Pilih pupuk terlebih dahulu", error: true);
+      return;
     }
 
-    setState(() => _isSending = false);
+    if (_selectedTanaman == null) {
+      _showMessage("Jumlah tanaman belum dipilih", error: true);
+      return;
+    }
+
+    if (hst == null) {
+      _showMessage("HST tidak valid", error: true);
+      return;
+    }
+
+    final result = ExpertSystemService.calculate(
+      CalculationInput(
+        commodityId: _commodity!.id,
+        hst: hst,
+        luasLahan: double.tryParse(_luas.text) ?? 0,
+        jumlahTanaman: _selectedTanaman!,
+        fertilizerId: _fertilizer!.id,
+      ),
+    );
+
+    setState(() {
+      _result = result;
+    });
+
+    _showMessage("Perhitungan berhasil");
+  }
+
+  // =========================
+  // SEND TO ESP
+  // =========================
+  void _sendToEsp() {
+    if (_result == null) {
+      _showMessage("Belum ada hasil perhitungan", error: true);
+      return;
+    }
+
+    if (!widget.mqtt.isEspOnline) {
+      _showMessage("ESP tidak aktif / offline", error: true);
+      return;
+    }
+
+    widget.mqtt.setDosis(_result!.dosisPerTanaman);
+    _showMessage("Dosis ${_result!.dosisPerTanaman} gram berhasil dikirim ke ESP");
+  }
+
+  @override
+  void dispose() {
+    _hst.dispose();
+    _luas.dispose();
+    super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    final commodities = ExpertSystemService.getAllCommodities();
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
 
-    return Container(
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(AppTheme.radiusLG),
-        border: Border.all(color: AppTheme.borderColor),
-        color: AppTheme.surfaceLight,
-      ),
-      padding: const EdgeInsets.all(AppTheme.spacingXL),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Header
-          Row(
+        // ================= AI HEADER =================
+        Container(
+          padding: const EdgeInsets.all(16),
+          margin: const EdgeInsets.only(bottom: 16),
+          decoration: BoxDecoration(
+            color: Colors.blue.shade50,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: Colors.blue.shade100),
+          ),
+          child: const Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Container(
-                padding: const EdgeInsets.all(AppTheme.spacingMD),
-                decoration: BoxDecoration(
-                  gradient: const LinearGradient(
-                    colors: [AppTheme.accentGreen, Color(0xFF16A34A)],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                  ),
-                  borderRadius: BorderRadius.circular(AppTheme.radiusMD),
-                ),
-                child: const Icon(
-                  Icons.lightbulb_rounded,
-                  color: Colors.white,
-                  size: 20,
+              Text(
+                "AI Fertilizer Recommendation System",
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
                 ),
               ),
-              const SizedBox(width: AppTheme.spacingLG),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Rekomendasi Dosis Pupuk',
-                      style: Theme.of(context).textTheme.titleLarge,
-                    ),
-                    Text(
-                      'Hitung dosis berdasarkan komoditas & umur tanaman',
-                      style: Theme.of(
-                        context,
-                      ).textTheme.bodySmall?.copyWith(color: AppTheme.textGrey),
-                    ),
-                  ],
-                ),
+              SizedBox(height: 6),
+              Text(
+                "Sistem ini menganalisis jenis tanaman, umur tanaman (HST), luas lahan, jumlah tanaman, dan jenis pupuk untuk menghitung dosis optimal berbasis knowledge base agronomi.",
+                style: TextStyle(fontSize: 12),
               ),
             ],
           ),
-          const SizedBox(height: AppTheme.spacingXL),
+        ),
 
-          // Commodity Dropdown
+        // ================= COMMODITY =================
+        DropdownButtonFormField<Commodity>(
+          initialValue: _commodity,
+          items: commodities
+              .map(
+                (e) => DropdownMenuItem(
+                  value: e,
+                  child: Text(e.name),
+                ),
+              )
+              .toList(),
+          onChanged: (v) {
+            setState(() => _commodity = v);
+            _generateRange();
+          },
+          decoration: const InputDecoration(
+            labelText: "Pilih Komoditas",
+          ),
+        ),
+
+        const SizedBox(height: 10),
+
+        // ================= FERTILIZER =================
+        DropdownButtonFormField<Fertilizer>(
+          initialValue: _fertilizer,
+          items: fertilizers
+              .map(
+                (e) => DropdownMenuItem(
+                  value: e,
+                  child: Text(e.name),
+                ),
+              )
+              .toList(),
+          onChanged: (v) {
+            setState(() => _fertilizer = v);
+          },
+          decoration: const InputDecoration(
+            labelText: "Pilih Pupuk",
+          ),
+        ),
+
+        const SizedBox(height: 10),
+
+        // ================= LUAS =================
+        TextField(
+          controller: _luas,
+          keyboardType: TextInputType.number,
+          decoration: const InputDecoration(
+            labelText: "Luas Lahan (m²)",
+          ),
+          onChanged: (_) => _generateRange(),
+        ),
+
+        const SizedBox(height: 10),
+
+        // ================= HST =================
+        TextField(
+          controller: _hst,
+          keyboardType: TextInputType.number,
+          decoration: const InputDecoration(
+            labelText: "HST (hari)",
+          ),
+        ),
+
+        const SizedBox(height: 20),
+
+        // ================= SLIDER =================
+        if (_showSlider && _minTanaman != null)
           Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                'Pilih Komoditas',
-                style: Theme.of(context).textTheme.titleSmall,
+                "Jumlah Tanaman: $_selectedTanaman",
+                style: const TextStyle(fontWeight: FontWeight.bold),
               ),
-              const SizedBox(height: AppTheme.spacingMD),
-              DropdownButtonFormField<Commodity>(
-                initialValue: _selectedCommodity,
-                hint: Text(
-                  'Pilih komoditas',
-                  style: Theme.of(
-                    context,
-                  ).textTheme.bodyMedium?.copyWith(color: AppTheme.textGrey),
-                ),
-                isExpanded: true,
-                items: commodities.map((c) {
-                  return DropdownMenuItem<Commodity>(
-                    value: c,
-                    child: Text(c.name),
-                  );
-                }).toList(),
-                onChanged: (val) {
+              Slider(
+                value: (_selectedTanaman ?? 0).toDouble(),
+                min: _minTanaman!.toDouble(),
+                max: _maxTanaman!.toDouble(),
+                divisions: 20,
+                onChanged: (v) {
                   setState(() {
-                    _selectedCommodity = val;
-                    _recommendedDosis = null;
-                    _recommendationError = null;
+                    _selectedTanaman = v.round();
                   });
                 },
-                decoration: InputDecoration(
-                  prefixIcon: const Icon(Icons.agriculture_rounded),
-                  hintText: 'Pilih komoditas',
-                ),
               ),
             ],
           ),
-          const SizedBox(height: AppTheme.spacingLG),
 
-          // HST Input
-          TextField(
-            controller: _hstController,
-            keyboardType: const TextInputType.numberWithOptions(decimal: true),
-            decoration: InputDecoration(
-              labelText: 'Umur Tanaman (HST)',
-              hintText: 'Contoh: 30',
-              prefixIcon: const Icon(Icons.calendar_month_rounded),
-              suffixText: 'hari',
-            ),
+        const SizedBox(height: 20),
+
+        // ================= BUTTON =================
+        SizedBox(
+          width: double.infinity,
+          child: ElevatedButton(
+            onPressed: _calculate,
+            child: const Text("Hitung Rekomendasi"),
           ),
-          const SizedBox(height: AppTheme.spacingXL),
+        ),
 
-          // Calculate Button
-          SizedBox(
-            width: double.infinity,
-            child: ElevatedButton.icon(
-              onPressed: _isCalculating ? null : _hitungRekomendasi,
-              icon: _isCalculating
-                  ? SizedBox(
-                      width: 18,
-                      height: 18,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                        valueColor: AlwaysStoppedAnimation<Color>(
-                          Theme.of(context).primaryColor,
-                        ),
-                      ),
-                    )
-                  : const Icon(Icons.calculate_rounded),
-              label: Text(
-                _isCalculating ? 'Menghitung...' : 'Hitung Rekomendasi',
-              ),
+        const SizedBox(height: 20),
+
+        // ================= RESULT =================
+        if (_result != null) ...[
+          Container(
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: Colors.green.withValues(alpha: 0.08),
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: Colors.green.shade100),
             ),
-          ),
-          const SizedBox(height: AppTheme.spacingLG),
+            child: Row(
+              children: [
 
-          // Error Message
-          if (_recommendationError != null)
-            Container(
-              padding: const EdgeInsets.all(AppTheme.spacingMD),
-              decoration: BoxDecoration(
-                color: AppTheme.errorColor.withValues(alpha: 0.1),
-                borderRadius: BorderRadius.circular(AppTheme.radiusMD),
-                border: Border.all(
-                  color: AppTheme.errorColor.withValues(alpha: 0.3),
-                ),
-              ),
-              child: Row(
-                children: [
-                  Icon(
-                    Icons.error_rounded,
-                    color: AppTheme.errorColor,
-                    size: 20,
-                  ),
-                  const SizedBox(width: AppTheme.spacingMD),
-                  Expanded(
-                    child: Text(
-                      _recommendationError!,
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: AppTheme.errorColor,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-
-          // Result Card
-          if (_recommendedDosis != null) ...[
-            const SizedBox(height: AppTheme.spacingLG),
-            Container(
-              padding: const EdgeInsets.all(AppTheme.spacingLG),
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  colors: [
-                    AppTheme.accentGreen.withValues(alpha: 0.15),
-                    Color(0xFF16A34A).withValues(alpha: 0.15),
-                  ],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                ),
-                borderRadius: BorderRadius.circular(AppTheme.radiusMD),
-                border: Border.all(
-                  color: AppTheme.accentGreen.withValues(alpha: 0.3),
-                ),
-              ),
-              child: Column(
-                children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                // LEFT
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Dosis Rekomendasi',
-                            style: Theme.of(context).textTheme.bodySmall
-                                ?.copyWith(color: AppTheme.textGrey),
-                          ),
-                          const SizedBox(height: AppTheme.spacingSM),
-                          Text(
-                            '${_recommendedDosis!.toStringAsFixed(2)} gram',
-                            style: GoogleFonts.plusJakartaSans(
-                              fontSize: 28,
-                              fontWeight: FontWeight.w700,
-                              color: AppTheme.accentGreen,
-                            ),
-                          ),
-                        ],
+                      const Text(
+                        "Total Kebutuhan",
+                        style: TextStyle(fontWeight: FontWeight.bold),
                       ),
-                      Container(
-                        padding: const EdgeInsets.all(AppTheme.spacingLG),
-                        decoration: BoxDecoration(
-                          color: AppTheme.accentGreen.withValues(alpha: 0.2),
-                          shape: BoxShape.circle,
-                        ),
-                        child: Icon(
-                          Icons.check_circle_rounded,
-                          color: AppTheme.accentGreen,
-                          size: 32,
+                      const SizedBox(height: 6),
+                      Text(
+                        "${_result!.totalPupukKg.toStringAsFixed(2)} kg",
+                        style: const TextStyle(fontSize: 16),
+                      ),
+                    ],
+                  ),
+                ),
+
+                Container(width: 1, height: 50, color: Colors.grey.shade300),
+
+                // RIGHT
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      const Text(
+                        "Dosis per Titik",
+                        style: TextStyle(fontWeight: FontWeight.bold),
+                      ),
+                      const SizedBox(height: 6),
+                      Text(
+                        "${_result!.dosisPerTanaman.toStringAsFixed(2)} g",
+                        style: const TextStyle(
+                          fontSize: 16,
+                          color: Colors.blue,
+                          fontWeight: FontWeight.bold,
                         ),
                       ),
                     ],
                   ),
-                  const SizedBox(height: AppTheme.spacingLG),
-                  SizedBox(
-                    width: double.infinity,
-                    child: ElevatedButton.icon(
-                      onPressed: _isSending ? null : _kirimDosis,
-                      icon: _isSending
-                          ? SizedBox(
-                              width: 18,
-                              height: 18,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2,
-                                valueColor: AlwaysStoppedAnimation<Color>(
-                                  Colors.white,
-                                ),
-                              ),
-                            )
-                          : const Icon(Icons.send_rounded),
-                      label: Text(
-                        _isSending ? 'Mengirim...' : 'Kirim Dosis ke Alat',
-                      ),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppTheme.accentGreen,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
+                ),
+              ],
             ),
-          ],
+          ),
+
+          const SizedBox(height: 10),
+
+          Text(
+            _generateExplanation(),
+            style: const TextStyle(fontSize: 11, color: Colors.grey),
+          ),
+
+          const SizedBox(height: 12),
+
+          // ================= ESP BUTTON =================
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton.icon(
+              onPressed: _sendToEsp,
+              icon: const Icon(Icons.send),
+              label: const Text("Kirim ke ESP"),
+            ),
+          ),
         ],
-      ),
+      ],
     );
   }
 }

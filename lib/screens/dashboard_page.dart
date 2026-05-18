@@ -18,7 +18,7 @@ class DashboardPage extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              'Alburdat Presisi',
+              'FERTICORE AI Dashboard',
               style: Theme.of(context).textTheme.headlineSmall,
             ),
             Text(

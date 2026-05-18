@@ -1,56 +1,78 @@
 import 'package:alburdat_dashboard/models/commodity.dart';
+import 'package:alburdat_dashboard/models/fertilizer.dart';
 import 'package:alburdat_dashboard/models/rule.dart';
 
-const List<Commodity> commodities = [
-  Commodity(id: 1, name: 'Jagung'),
-  Commodity(id: 2, name: 'Cabai Merah'),
-  Commodity(id: 3, name: 'Kentang'),
-  Commodity(id: 4, name: 'Alpukat'),
-  Commodity(id: 5, name: 'Buah Naga'),
-  Commodity(id: 6, name: 'Durian'),
-  Commodity(id: 7, name: 'Kakao'),
-  Commodity(id: 8, name: 'Karet'),
-  Commodity(id: 9, name: 'Sawit'),
-  Commodity(id: 10, name: 'Kopi'),
-  Commodity(id: 11, name: 'Pala'),
-  Commodity(id: 12, name: 'Pisang'),
-  Commodity(id: 13, name: 'Tebu'),
+/// ========================
+/// FERTILIZER MASTER DATA
+/// ========================
+const fertilizers = [
+  Fertilizer(id: 1, name: 'NPK'),
+  Fertilizer(id: 2, name: 'Urea'),
 ];
 
-// Knowledge base: key = id komoditas, value = list aturan
+/// multiplier pupuk
+const fertilizerMultipliers = {
+  1: 1.0,
+  2: 0.7,
+};
+
+/// ========================
+/// COMMODITY + JARAK TANAM
+/// ========================
+const List<Commodity> commodities = [
+  Commodity(id: 1, name: 'Jagung', jarakTanam: 0.7),
+  Commodity(id: 2, name: 'Cabai Merah', jarakTanam: 0.5),
+  Commodity(id: 3, name: 'Kentang', jarakTanam: 0.4),
+  Commodity(id: 4, name: 'Alpukat', jarakTanam: 5.0),
+  Commodity(id: 5, name: 'Buah Naga', jarakTanam: 3.0),
+  Commodity(id: 6, name: 'Durian', jarakTanam: 8.0),
+  Commodity(id: 7, name: 'Kakao', jarakTanam: 3.0),
+  Commodity(id: 8, name: 'Karet', jarakTanam: 6.0),
+  Commodity(id: 9, name: 'Sawit', jarakTanam: 9.0),
+  Commodity(id: 10, name: 'Kopi', jarakTanam: 2.0),
+  Commodity(id: 11, name: 'Pala', jarakTanam: 6.0),
+  Commodity(id: 12, name: 'Pisang', jarakTanam: 3.0),
+  Commodity(id: 13, name: 'Tebu', jarakTanam: 1.2),
+];
+
 const Map<int, List<Rule>> knowledgeBase = {
-  1: [ // Jagung
+  1: [
     Rule(minHst: 0, maxHst: 20, dosis: 3.6),
     Rule(minHst: 21, maxHst: double.infinity, dosis: 2.9),
   ],
-  2: [ // Cabai Merah
+  2: [
     Rule(minHst: 0, maxHst: double.infinity, dosis: 2.9),
   ],
-  3: [ // Kentang
+  3: [
     Rule(minHst: 0, maxHst: 20, dosis: 6.0),
     Rule(minHst: 21, maxHst: double.infinity, dosis: 2.4),
   ],
-  4: [ // Alpukat
+  4: [
     Rule(minHst: 0, maxHst: 90, dosis: 80.0),
     Rule(minHst: 91, maxHst: 180, dosis: 315.0),
     Rule(minHst: 181, maxHst: double.infinity, dosis: 1325.0),
   ],
-  5: [ // Buah Naga
+  5: [
     Rule(minHst: 0, maxHst: double.infinity, dosis: 15.0),
   ],
-  6: [ // Durian
+  6: [
     Rule(minHst: 0, maxHst: 720, dosis: 200.0),
     Rule(minHst: 721, maxHst: 1440, dosis: 400.0),
     Rule(minHst: 1441, maxHst: 2880, dosis: 600.0),
     Rule(minHst: 2881, maxHst: double.infinity, dosis: 850.0),
   ],
-  7: [ // Kakao
+  7: [
     Rule(minHst: 0, maxHst: 360, dosis: 25.0),
     Rule(minHst: 361, maxHst: 720, dosis: 45.0),
     Rule(minHst: 721, maxHst: 1080, dosis: 90.0),
     Rule(minHst: 1081, maxHst: 1440, dosis: 180.0),
     Rule(minHst: 1441, maxHst: double.infinity, dosis: 220.0),
   ],
+
+  // ========================
+  // TAMBAHAN (8–13)
+  // ========================
+
   8: [ // Karet
     Rule(minHst: 0, maxHst: 1080, dosis: 250.0),
     Rule(minHst: 1081, maxHst: 1440, dosis: 300.0),

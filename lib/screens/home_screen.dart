@@ -43,7 +43,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              'Alburdat Presisi',
+              'FERTICORE AI',
               style: Theme.of(context).textTheme.headlineSmall,
             ),
             Text(
