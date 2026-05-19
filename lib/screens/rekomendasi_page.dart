@@ -5,7 +5,12 @@ import 'package:alburdat_dashboard/widgets/rekomendasi_card_widget.dart';
 import 'package:alburdat_dashboard/theme/theme.dart';
 
 class RekomendasiPage extends StatelessWidget {
-  const RekomendasiPage({super.key});
+  final String? activeDeviceId; // Menerima ID alat yang sedang dipilih
+
+  const RekomendasiPage({
+    super.key,
+    this.activeDeviceId, // Wajib disertakan saat memanggil halaman ini
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -34,7 +39,10 @@ class RekomendasiPage extends StatelessWidget {
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(AppTheme.spacingLG),
-        child: RekomendasiCardWidget(mqtt: mqtt),
+        child: RekomendasiCardWidget(
+          mqtt: mqtt,
+          activeDeviceId: activeDeviceId, // Teruskan ID ke komponen perhitungan
+        ),
       ),
       backgroundColor: AppTheme.backgroundLight,
     );

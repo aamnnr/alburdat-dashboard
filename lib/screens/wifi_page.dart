@@ -5,7 +5,12 @@ import 'package:alburdat_dashboard/widgets/wifi_settings_card_widget.dart';
 import 'package:alburdat_dashboard/theme/theme.dart';
 
 class WifiPage extends StatelessWidget {
-  const WifiPage({super.key});
+  final String? activeDeviceId; // Menerima ID alat yang sedang dipilih
+
+  const WifiPage({
+    super.key,
+    this.activeDeviceId, // Wajib disertakan saat memanggil halaman ini
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -34,7 +39,10 @@ class WifiPage extends StatelessWidget {
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(AppTheme.spacingLG),
-        child: WifiSettingsCardWidget(mqtt: mqtt),
+        child: WifiSettingsCardWidget(
+          mqtt: mqtt,
+          activeDeviceId: activeDeviceId, // Teruskan ID ke komponen pengaturan WiFi
+        ),
       ),
       backgroundColor: AppTheme.backgroundLight,
     );

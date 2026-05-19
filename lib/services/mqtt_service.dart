@@ -7,10 +7,14 @@ import '../models/device_status.dart';
 
 class MqttService extends ChangeNotifier {
   late MqttServerClient client;
-  final String broker = 'broker.emqx.io';
-  final int port = 8083;
-  final String clientIdentifier =
-      'AlburdatMobile_${DateTime.now().millisecondsSinceEpoch}';
+  
+  // --- KONFIGURASI KOMERSIAL ---
+  static const String broker = String.fromEnvironment('MQTT_BROKER', defaultValue: 'nama-broker-emqx-kalian.emqxsl.com');
+  static const int port = int.fromEnvironment('MQTT_PORT', defaultValue: 8883);
+  static const String mqttUser = String.fromEnvironment('MQTT_USER', defaultValue: 'perangkat_ferticore');
+  static const String mqttPass = String.fromEnvironment('MQTT_PASS', defaultValue: 'sandi_aman_123');
+  
+  final String clientIdentifier = 'AlburdatMobile_${DateTime.now().millisecondsSinceEpoch}';
 
   bool _isConnecting = false;
   bool get isConnecting => _isConnecting;
@@ -18,20 +22,25 @@ class MqttService extends ChangeNotifier {
   bool _isConnected = false;
   bool get isConnected => _isConnected;
 
-  DeviceStatus? _latestStatus;
-  DateTime? _lastStatusTime;
-  DeviceStatus? get latestStatus => _latestStatus;
-  bool get isEspOnline =>
-      _lastStatusTime != null &&
-      DateTime.now().difference(_lastStatusTime!).inSeconds < 30;
+  // --- MULTI-DEVICE STATE ---
+  // Menyimpan status dan waktu terakhir untuk BANYAK perangkat berdasarkan MAC Address
+  final Map<String, DeviceStatus> _deviceStatuses = {};
+  final Map<String, DateTime> _lastStatusTimes = {};
+  
+  // Daftar MAC Address yang dimiliki oleh user (diambil dari Supabase)
+  List<String> _activeDeviceIds = [];
 
-  final _statusStreamController = StreamController<DeviceStatus>.broadcast();
-  Stream<DeviceStatus> get statusStream => _statusStreamController.stream;
+  // Mendapatkan status spesifik untuk satu alat
+  DeviceStatus? getDeviceStatus(String deviceId) => _deviceStatuses[deviceId];
+  
+  // Mengecek apakah alat spesifik sedang online
+  bool isEspOnline(String deviceId) {
+    final lastTime = _lastStatusTimes[deviceId];
+    if (lastTime == null) return false;
+    return DateTime.now().difference(lastTime).inSeconds < 30;
+  }
 
-  static const String topicStatus = 'alburdat/status';
-  static const String topicCommand = 'alburdat/command';
-
-  // Untuk reconnection logic
+  // --- RECONNECTION LOGIC ---
   Timer? _reconnectTimer;
   int _reconnectAttempts = 0;
   static const int _maxReconnectAttempts = 10;
@@ -43,8 +52,20 @@ class MqttService extends ChangeNotifier {
 
   void _initClient() {
     client = MqttServerClient(broker, clientIdentifier);
-    client.port = 1883; // port TCP
-    client.useWebSocket = false; // nonaktifkan WebSocket
+    client.port = port;
+    client.useWebSocket = false;
+    
+    // AKTIFKAN KEAMANAN TLS/SSL
+    client.secure = true;
+    client.setProtocolV311();
+
+    // KREDENSIAL AUTENTIKASI
+    final connMess = MqttConnectMessage()
+        .authenticateAs(mqttUser, mqttPass)
+        .withClientIdentifier(clientIdentifier)
+        .startClean(); // Session bersih saat connect
+    client.connectionMessage = connMess;
+
     client.logging(on: false);
     client.keepAlivePeriod = 20;
     client.onDisconnected = _onDisconnected;
@@ -53,12 +74,21 @@ class MqttService extends ChangeNotifier {
     client.pongCallback = _pong;
   }
 
+  // Memperbarui daftar alat dari database sebelum melakukan subscribe
+  void updateActiveDevices(List<String> deviceIds) {
+    _activeDeviceIds = deviceIds;
+    if (_isConnected) {
+      _subscribeToAllTopics();
+    }
+  }
+
   Future<void> connect() async {
     if (_isConnected || _isConnecting) return;
     _isConnecting = true;
     _reconnectAttempts = 0;
     notifyListeners();
-    debugPrint('Connecting to MQTT broker...');
+    debugPrint('Connecting to secure MQTT broker...');
+    
     try {
       await client.connect();
     } catch (e) {
@@ -69,13 +99,14 @@ class MqttService extends ChangeNotifier {
       _scheduleReconnect();
       return;
     }
+    
     _isConnecting = false;
     if (client.connectionStatus!.state == MqttConnectionState.connected) {
-      debugPrint('MQTT connected');
+      debugPrint('Secure MQTT connected');
       _isConnected = true;
       _reconnectAttempts = 0;
       notifyListeners();
-      _subscribeToTopics();
+      _subscribeToAllTopics();
     } else {
       debugPrint('Connection failed - disconnecting');
       client.disconnect();
@@ -85,10 +116,15 @@ class MqttService extends ChangeNotifier {
     }
   }
 
-  void _subscribeToTopics() {
-    if (!_isConnected) return;
-    client.subscribe(topicStatus, MqttQos.atLeastOnce);
-    debugPrint('Subscribed to $topicStatus');
+  // Melakukan subscribe secara dinamis berdasarkan list device_id
+  void _subscribeToAllTopics() {
+    if (!_isConnected || _activeDeviceIds.isEmpty) return;
+    
+    for (String deviceId in _activeDeviceIds) {
+      String topic = 'alburdat/$deviceId/status';
+      client.subscribe(topic, MqttQos.atLeastOnce);
+      debugPrint('Subscribed to $topic');
+    }
   }
 
   void _onConnected() {
@@ -111,16 +147,12 @@ class MqttService extends ChangeNotifier {
     _cancelReconnectTimer();
     if (_reconnectAttempts < _maxReconnectAttempts) {
       _reconnectAttempts++;
-      debugPrint(
-        'Scheduling reconnect attempt $_reconnectAttempts/$_maxReconnectAttempts in ${_reconnectInterval.inSeconds}s',
-      );
+      debugPrint('Scheduling reconnect attempt $_reconnectAttempts/$_maxReconnectAttempts');
       _reconnectTimer = Timer(_reconnectInterval, () {
         if (!_isConnected && !_isConnecting) {
           connect();
         }
       });
-    } else {
-      debugPrint('Max reconnect attempts reached');
     }
   }
 
@@ -130,27 +162,37 @@ class MqttService extends ChangeNotifier {
   }
 
   void _onSubscribed(String topic) {
-    debugPrint('Subscribed to $topic');
-    client.updates!.listen(_onMessage);
+    // Hanya pasang listener jika belum pernah dipasang (hindari duplikasi)
+    if (!client.updates!.isBroadcast) {
+       client.updates!.listen(_onMessage);
+    }
   }
 
   void _onMessage(List<MqttReceivedMessage<MqttMessage>> messages) {
     final recMessage = messages[0].payload as MqttPublishMessage;
     final topic = messages[0].topic;
-    final payload = MqttPublishPayload.bytesToStringAsString(
-      recMessage.payload.message,
-    );
+    final payload = MqttPublishPayload.bytesToStringAsString(recMessage.payload.message);
 
     debugPrint('Received on $topic: $payload');
 
-    if (topic == topicStatus) {
+    // Filter pesan hanya yang berakhiran '/status'
+    if (topic.endsWith('/status')) {
       try {
         final jsonData = jsonDecode(payload);
-        final status = DeviceStatus.fromJson(jsonData);
-        _latestStatus = status;
-        _lastStatusTime = DateTime.now();
-        _statusStreamController.add(status);
-        notifyListeners();
+        
+        // Ambil device_id dari payload JSON yang dikirim oleh ESP32
+        final String deviceId = jsonData['device_id'] ?? '';
+        
+        if (deviceId.isNotEmpty) {
+           final status = DeviceStatus.fromJson(jsonData);
+           
+           // Simpan ke state Map berdasarkan deviceId
+           _deviceStatuses[deviceId] = status;
+           _lastStatusTimes[deviceId] = DateTime.now();
+           
+           // Beritahu UI untuk me-render ulang
+           notifyListeners();
+        }
       } catch (e) {
         debugPrint('JSON parse error: $e');
       }
@@ -159,23 +201,28 @@ class MqttService extends ChangeNotifier {
 
   void _pong() => debugPrint('Pong received');
 
-  void publishCommand(Map<String, dynamic> command) {
+  // --- PERINTAH KE DEVICE SPESIFIK ---
+  void publishCommand(String deviceId, Map<String, dynamic> command) {
     if (!_isConnected) {
       debugPrint('Not connected');
       return;
     }
+    
+    // Topik tujuan spesifik alat
+    final String topicCommand = 'alburdat/$deviceId/command';
+    
     final builder = MqttClientPayloadBuilder();
     builder.addString(jsonEncode(command));
     client.publishMessage(topicCommand, MqttQos.atLeastOnce, builder.payload!);
+    debugPrint('Command sent to $topicCommand');
   }
 
-  void setDosis(double value) => publishCommand({'set_dosis': value});
-  void resetStats() => publishCommand({'reset_stats': true});
-  void resetWifi() => publishCommand({'reset_wifi': true});
+  // Wajib sertakan deviceId saat memanggil fungsi dari UI
+  void setDosis(String deviceId, double value) => publishCommand(deviceId, {'set_dosis': value});
+  void resetStats(String deviceId) => publishCommand(deviceId, {'reset_stats': true});
 
   void disconnect() {
     _cancelReconnectTimer();
     client.disconnect();
-    _statusStreamController.close();
   }
 }

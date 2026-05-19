@@ -1,15 +1,59 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:alburdat_dashboard/services/mqtt_service.dart';
 import 'package:alburdat_dashboard/theme/theme.dart';
+import 'package:alburdat_dashboard/screens/splash_screen.dart'; // Pastikan path ini sesuai
 import 'package:google_fonts/google_fonts.dart';
 
 class InfoPage extends StatelessWidget {
-  const InfoPage({super.key});
+  final String? activeDeviceId; // Tambahan: Menerima ID alat yang sedang dipilih
+
+  const InfoPage({
+    super.key, 
+    this.activeDeviceId,
+  });
+
+  // Fungsi untuk menangani proses logout
+  Future<void> _handleLogout(BuildContext context) async {
+    try {
+      // 1. Putuskan koneksi MQTT agar tidak berjalan di background
+      context.read<MqttService>().disconnect();
+      
+      // 2. Hapus sesi token dari Supabase
+      await Supabase.instance.client.auth.signOut();
+
+      // 3. Arahkan kembali ke Splash Screen dan hapus riwayat navigasi
+      if (context.mounted) {
+        Navigator.of(context).pushAndRemoveUntil(
+          MaterialPageRoute(builder: (context) => const SplashScreen()),
+          (route) => false,
+        );
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Gagal keluar akun: $e'),
+            backgroundColor: AppTheme.errorColor,
+          ),
+        );
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     final mqtt = Provider.of<MqttService>(context);
+
+    // Cek status berdasarkan alat yang sedang aktif
+    final bool isDeviceOnline = activeDeviceId != null 
+        ? mqtt.isEspOnline(activeDeviceId!) 
+        : false;
+        
+    final String deviceStatusText = activeDeviceId == null 
+        ? 'Tidak ada alat' 
+        : (isDeviceOnline ? 'Online' : 'Offline');
 
     return Scaffold(
       appBar: AppBar(
@@ -28,12 +72,19 @@ class InfoPage extends StatelessWidget {
         foregroundColor: AppTheme.textDark,
       ),
       body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16), // beri padding merata
+        padding: const EdgeInsets.all(AppTheme.spacingLG),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             // ================= APP INFO =================
             _appInfo(context),
+
+            const SizedBox(height: AppTheme.spacingXL),
+
+            // ================= AKUN PENGGUNA =================
+            Text('Akun Pengguna', style: Theme.of(context).textTheme.titleLarge),
+            const SizedBox(height: AppTheme.spacingLG),
+            _buildAccountCard(context),
 
             const SizedBox(height: AppTheme.spacingXL),
 
@@ -61,8 +112,8 @@ class InfoPage extends StatelessWidget {
                 Expanded(
                   child: _buildStatusCard(
                     title: 'ESP Device',
-                    status: mqtt.isEspOnline ? 'Online' : 'Offline',
-                    isActive: mqtt.isEspOnline,
+                    status: deviceStatusText,
+                    isActive: isDeviceOnline,
                     icon: Icons.router_rounded,
                   ),
                 ),
@@ -74,8 +125,7 @@ class InfoPage extends StatelessWidget {
             // ================= VERSION =================
             _versionCard(context),
 
-            // Tidak ada Spacer atau apapun, scroll alami
-            const SizedBox(height: 24), // sedikit ruang bawah opsional
+            const SizedBox(height: 32),
           ],
         ),
       ),
@@ -113,6 +163,62 @@ class InfoPage extends StatelessWidget {
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(color: AppTheme.textGrey),
                 ),
               ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildAccountCard(BuildContext context) {
+    // Mengambil data user yang sedang login dari Supabase
+    final user = Supabase.instance.client.auth.currentUser;
+    final email = user?.email ?? 'Tidak diketahui';
+
+    return Container(
+      padding: const EdgeInsets.all(AppTheme.spacingLG),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(AppTheme.radiusMD),
+        border: Border.all(color: AppTheme.borderColor),
+        color: AppTheme.surfaceLight,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(AppTheme.spacingSM),
+                decoration: BoxDecoration(
+                  color: AppTheme.textDark.withValues(alpha: 0.05),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(Icons.person_outline_rounded, color: AppTheme.textDark),
+              ),
+              const SizedBox(width: AppTheme.spacingMD),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('Email Terdaftar', style: Theme.of(context).textTheme.bodySmall),
+                    const SizedBox(height: 2),
+                    Text(email, style: Theme.of(context).textTheme.titleMedium),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: AppTheme.spacingLG),
+          SizedBox(
+            width: double.infinity,
+            child: OutlinedButton.icon(
+              onPressed: () => _handleLogout(context),
+              icon: const Icon(Icons.logout_rounded, color: AppTheme.errorColor),
+              label: const Text('Keluar Akun', style: TextStyle(color: AppTheme.errorColor)),
+              style: OutlinedButton.styleFrom(
+                side: const BorderSide(color: AppTheme.errorColor),
+                padding: const EdgeInsets.symmetric(vertical: AppTheme.spacingMD),
+              ),
             ),
           ),
         ],

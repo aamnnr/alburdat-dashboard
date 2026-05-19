@@ -4,8 +4,13 @@ import 'package:alburdat_dashboard/theme/theme.dart';
 
 class WifiSettingsCardWidget extends StatefulWidget {
   final MqttService mqtt;
+  final String? activeDeviceId; // Tambahan: Menerima ID alat aktif
 
-  const WifiSettingsCardWidget({super.key, required this.mqtt});
+  const WifiSettingsCardWidget({
+    super.key, 
+    required this.mqtt,
+    required this.activeDeviceId, // Wajib diisi dari pemanggil (HomeScreen/WifiPage)
+  });
 
   @override
   State<WifiSettingsCardWidget> createState() => _WifiSettingsCardWidgetState();
@@ -27,6 +32,18 @@ class _WifiSettingsCardWidgetState extends State<WifiSettingsCardWidget> {
   }
 
   void _showResetWifiDialog() {
+    // Validasi awal sebelum menampilkan popup
+    if (widget.activeDeviceId == null) {
+      _showFeedback('Tidak ada alat yang dipilih.', isError: true);
+      return;
+    }
+
+    // Mengambil 4 digit terakhir MAC Address untuk mencocokkan SSID AP
+    final String deviceId = widget.activeDeviceId!;
+    final String apSuffix = deviceId.length >= 4 
+        ? deviceId.substring(deviceId.length - 4) 
+        : deviceId;
+
     showDialog(
       context: context,
       builder: (ctx) => Dialog(
@@ -57,7 +74,7 @@ class _WifiSettingsCardWidgetState extends State<WifiSettingsCardWidget> {
               ),
               const SizedBox(height: AppTheme.spacingMD),
               Text(
-                'Tindakan ini akan mereset koneksi WiFi dan alat akan restart. Anda perlu menghubungkan ke WiFi "FERTICORE_CONFIG" dengan password "petanisukses" dan konfigurasi ulang jaringan WiFi.',
+                'Tindakan ini akan mereset koneksi WiFi dan alat akan restart. Anda perlu menghubungkan ke WiFi "FERTICORE_$apSuffix" dengan password "12345678" dan konfigurasi ulang melalui fitur Tambah Alat.',
                 textAlign: TextAlign.center,
                 style: Theme.of(
                   context,
@@ -80,14 +97,19 @@ class _WifiSettingsCardWidgetState extends State<WifiSettingsCardWidget> {
                       ),
                       onPressed: () {
                         Navigator.pop(ctx);
-                        if (!widget.mqtt.isEspOnline) {
-                          _showFeedback('ESP tidak aktif', isError: true);
+                        
+                        // Validasi status online menggunakan ID alat spesifik
+                        if (!widget.mqtt.isEspOnline(widget.activeDeviceId!)) {
+                          _showFeedback('Alat sedang offline', isError: true);
                           return;
                         }
-                        widget.mqtt.resetWifi();
+                        
+                        // Mengirim perintah menggunakan format Map yang diharapkan MqttService
+                        widget.mqtt.publishCommand(widget.activeDeviceId!, {'reset_wifi': true});
+                        
                         _showFeedback('Perintah reset WiFi telah dikirim');
                       },
-                      child: const Text('Reset WiFi'),
+                      child: const Text('Reset WiFi', style: TextStyle(color: Colors.white)),
                     ),
                   ),
                 ],
@@ -101,6 +123,11 @@ class _WifiSettingsCardWidgetState extends State<WifiSettingsCardWidget> {
 
   @override
   Widget build(BuildContext context) {
+    // Mengekstrak suffix untuk ditampilkan di instruksi UI
+    final String apSuffix = widget.activeDeviceId != null && widget.activeDeviceId!.length >= 4 
+        ? widget.activeDeviceId!.substring(widget.activeDeviceId!.length - 4) 
+        : 'XXXX';
+
     return Container(
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(AppTheme.radiusLG),
@@ -140,7 +167,7 @@ class _WifiSettingsCardWidgetState extends State<WifiSettingsCardWidget> {
                       style: Theme.of(context).textTheme.titleLarge,
                     ),
                     Text(
-                      'Konfigurasi ulang jaringan WiFi',
+                      'Konfigurasi ulang jaringan nirkabel',
                       style: Theme.of(
                         context,
                       ).textTheme.bodySmall?.copyWith(color: AppTheme.textGrey),
@@ -185,19 +212,14 @@ class _WifiSettingsCardWidgetState extends State<WifiSettingsCardWidget> {
                   ],
                 ),
                 const SizedBox(height: AppTheme.spacingMD),
-                _buildListItem('1.', 'Klik tombol "Reset WiFi" di bawah'),
+                _buildListItem('1.', 'Klik tombol "Reset WiFi Alat" di bawah'),
                 const SizedBox(height: AppTheme.spacingSM),
                 _buildListItem(
                   '2.',
-                  'Sambungkan perangkat ke WiFi "FERTICORE_CONFIG", password: "petanisukses"',
+                  'Alat akan restart dan memancarkan WiFi baru bernama "FERTICORE_$apSuffix"',
                 ),
                 const SizedBox(height: AppTheme.spacingSM),
-                _buildListItem('3.', 'Buka browser dan akses 192.168.4.1'),
-                const SizedBox(height: AppTheme.spacingSM),
-                _buildListItem(
-                  '4.',
-                  'Pilih jaringan WiFi dan masukkan password',
-                ),
+                _buildListItem('3.', 'Gunakan fitur "Tambah Alat" di Dashboard utama untuk menghubungkan ulang alat ke router Anda.'),
               ],
             ),
           ),
@@ -208,10 +230,11 @@ class _WifiSettingsCardWidgetState extends State<WifiSettingsCardWidget> {
             width: double.infinity,
             child: ElevatedButton.icon(
               onPressed: _showResetWifiDialog,
-              icon: const Icon(Icons.router_rounded),
-              label: const Text('Reset WiFi Alat'),
+              icon: const Icon(Icons.router_rounded, color: Colors.white),
+              label: const Text('Reset WiFi Alat', style: TextStyle(color: Colors.white)),
               style: ElevatedButton.styleFrom(
                 backgroundColor: AppTheme.errorColor,
+                padding: const EdgeInsets.symmetric(vertical: 16),
               ),
             ),
           ),

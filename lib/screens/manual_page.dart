@@ -5,7 +5,12 @@ import 'package:alburdat_dashboard/widgets/manual_dosis_card_widget.dart';
 import 'package:alburdat_dashboard/theme/theme.dart';
 
 class ManualPage extends StatelessWidget {
-  const ManualPage({super.key});
+  final String? activeDeviceId; // Menerima ID alat yang sedang dipilih
+
+  const ManualPage({
+    super.key,
+    this.activeDeviceId, // Wajib disertakan saat memanggil halaman ini
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -34,7 +39,10 @@ class ManualPage extends StatelessWidget {
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(AppTheme.spacingLG),
-        child: ManualDosisCardWidget(mqtt: mqtt),
+        child: ManualDosisCardWidget(
+          mqtt: mqtt,
+          activeDeviceId: activeDeviceId, // Teruskan ID ke komponen pengirim perintah
+        ),
       ),
       backgroundColor: AppTheme.backgroundLight,
     );

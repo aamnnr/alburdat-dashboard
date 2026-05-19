@@ -7,11 +7,13 @@ import 'package:google_fonts/google_fonts.dart';
 class StatistikCardWidget extends StatefulWidget {
   final DeviceStatus? status;
   final MqttService mqtt;
+  final String? activeDeviceId; // Tambahan: Menerima ID alat aktif
 
   const StatistikCardWidget({
     super.key,
     required this.status,
     required this.mqtt,
+    required this.activeDeviceId, // Wajib diisi dari pemanggil (HomeScreen)
   });
 
   @override
@@ -20,6 +22,12 @@ class StatistikCardWidget extends StatefulWidget {
 
 class _StatistikCardWidgetState extends State<StatistikCardWidget> {
   void _showResetStatsDialog() {
+    // Validasi awal sebelum menampilkan popup
+    if (widget.activeDeviceId == null) {
+      _showFeedback('Tidak ada alat yang dipilih.', isError: true);
+      return;
+    }
+
     showDialog(
       context: context,
       builder: (ctx) => Dialog(
@@ -50,7 +58,7 @@ class _StatistikCardWidgetState extends State<StatistikCardWidget> {
               ),
               const SizedBox(height: AppTheme.spacingMD),
               Text(
-                'Yakin ingin mereset semua statistik? Tindakan ini tidak dapat dibatalkan.',
+                'Yakin ingin mereset semua statistik pada alat ini? Tindakan ini tidak dapat dibatalkan.',
                 textAlign: TextAlign.center,
                 style: Theme.of(
                   context,
@@ -73,14 +81,19 @@ class _StatistikCardWidgetState extends State<StatistikCardWidget> {
                       ),
                       onPressed: () {
                         Navigator.pop(ctx);
-                        if (!widget.mqtt.isEspOnline) {
-                          _showFeedback('ESP tidak aktif', isError: true);
+                        
+                        // Periksa status spesifik berdasarkan activeDeviceId
+                        if (!widget.mqtt.isEspOnline(widget.activeDeviceId!)) {
+                          _showFeedback('Alat sedang offline', isError: true);
                           return;
                         }
-                        widget.mqtt.resetStats();
+                        
+                        // Kirim perintah reset ke alat spesifik
+                        widget.mqtt.resetStats(widget.activeDeviceId!);
+                        
                         _showFeedback('Perintah reset statistik terkirim');
                       },
-                      child: const Text('Reset'),
+                      child: const Text('Reset', style: TextStyle(color: Colors.white)),
                     ),
                   ),
                 ],
@@ -105,6 +118,8 @@ class _StatistikCardWidgetState extends State<StatistikCardWidget> {
 
   @override
   Widget build(BuildContext context) {
+    // Karena kita tidak mengubah logika UI, kita tetapkan ke format 1 desimal
+    // Sama seperti DosisCardWidget, ini opsional tapi disarankan agar rapi
     final totalVolume = widget.status?.totalVolume ?? 0.0;
     final rataRata = widget.status?.rataRata ?? 0.0;
     final totalSesi = widget.status?.totalSesi ?? 0;
@@ -159,14 +174,14 @@ class _StatistikCardWidgetState extends State<StatistikCardWidget> {
                 _buildStatItem(
                   context,
                   'Total Volume',
-                  '${totalVolume.toStringAsFixed(2)} g',
+                  '${totalVolume.toStringAsFixed(1)} g',
                   Icons.balance,
                 ),
                 Container(width: 1, height: 60, color: AppTheme.borderColor),
                 _buildStatItem(
                   context,
                   'Rata-rata',
-                  '${rataRata.toStringAsFixed(2)} g',
+                  '${rataRata.toStringAsFixed(1)} g',
                   Icons.trending_up,
                 ),
                 Container(width: 1, height: 60, color: AppTheme.borderColor),
@@ -186,10 +201,11 @@ class _StatistikCardWidgetState extends State<StatistikCardWidget> {
             width: double.infinity,
             child: ElevatedButton.icon(
               onPressed: _showResetStatsDialog,
-              icon: const Icon(Icons.restart_alt_rounded),
-              label: const Text('Reset Statistik'),
+              icon: const Icon(Icons.restart_alt_rounded, color: Colors.white),
+              label: const Text('Reset Statistik', style: TextStyle(color: Colors.white)),
               style: ElevatedButton.styleFrom(
                 backgroundColor: AppTheme.warningColor,
+                padding: const EdgeInsets.symmetric(vertical: 16),
               ),
             ),
           ),

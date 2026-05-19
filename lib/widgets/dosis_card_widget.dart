@@ -10,7 +10,11 @@ class DosisCardWidget extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final dosis = status?.gramasi ?? 0.0;
+    // Ambil data dari status, gunakan default jika null (belum ada data masuk)
+    final double dosis = status?.gramasi ?? 0.0;
+    
+    // Ganti logika pengecekan dari dosis > 0 menjadi status putaran motor
+    final bool isMotorRunning = status?.isMotorRunning ?? false;
 
     return Container(
       decoration: BoxDecoration(
@@ -47,7 +51,7 @@ class DosisCardWidget extends StatelessWidget {
                       style: Theme.of(context).textTheme.titleSmall,
                     ),
                     Text(
-                      'Alat Presisi',
+                      'Pengaturan Alat Presisi',
                       style: Theme.of(context).textTheme.bodySmall,
                     ),
                   ],
@@ -57,12 +61,12 @@ class DosisCardWidget extends StatelessWidget {
           ),
           const SizedBox(height: AppTheme.spacingXL),
 
-          // Value
+          // Value (Nilai Dosis)
           Center(
             child: Column(
               children: [
                 Text(
-                  dosis.toStringAsFixed(2),
+                  dosis.toStringAsFixed(1), // Ubah jadi 1 desimal agar sesuai OLED ESP32
                   style: GoogleFonts.plusJakartaSans(
                     fontSize: 48,
                     fontWeight: FontWeight.w700,
@@ -71,7 +75,7 @@ class DosisCardWidget extends StatelessWidget {
                 ),
                 const SizedBox(height: AppTheme.spacingSM),
                 Text(
-                  'gram',
+                  'gram per sesi',
                   style: Theme.of(
                     context,
                   ).textTheme.bodyMedium?.copyWith(color: AppTheme.textGrey),
@@ -81,38 +85,33 @@ class DosisCardWidget extends StatelessWidget {
           ),
           const SizedBox(height: AppTheme.spacingXL),
 
-          // Status indicator
+          // Status indicator (Motor Running Status)
           Container(
             padding: const EdgeInsets.symmetric(
               horizontal: AppTheme.spacingMD,
               vertical: AppTheme.spacingSM,
             ),
             decoration: BoxDecoration(
-              color:
-                  (_isStatusActive(dosis)
-                          ? AppTheme.successColor
-                          : AppTheme.textGrey)
-                      .withValues(alpha: 0.1),
+              color: (isMotorRunning ? AppTheme.successColor : AppTheme.textGrey)
+                  .withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(AppTheme.radiusSM),
             ),
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
                 Icon(
-                  Icons.check_circle,
+                  // Ubah ikon agar lebih dinamis: gear berputar vs ceklis diam
+                  isMotorRunning ? Icons.settings_backup_restore : Icons.check_circle,
                   size: 14,
-                  color: _isStatusActive(dosis)
-                      ? AppTheme.successColor
-                      : AppTheme.textGrey,
+                  color: isMotorRunning ? AppTheme.successColor : AppTheme.textGrey,
                 ),
                 const SizedBox(width: AppTheme.spacingSM),
                 Text(
-                  _isStatusActive(dosis) ? 'Aktif' : 'Idle',
+                  // Sesuaikan teks dengan status asli dari ESP32
+                  isMotorRunning ? 'Sedang Memupuk' : 'Mesin Siap',
                   style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                    color: _isStatusActive(dosis)
-                        ? AppTheme.successColor
-                        : AppTheme.textGrey,
-                  ),
+                        color: isMotorRunning ? AppTheme.successColor : AppTheme.textGrey,
+                      ),
                 ),
               ],
             ),
@@ -121,6 +120,4 @@ class DosisCardWidget extends StatelessWidget {
       ),
     );
   }
-
-  bool _isStatusActive(double dosis) => dosis > 0;
 }

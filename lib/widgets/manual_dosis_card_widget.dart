@@ -4,8 +4,13 @@ import 'package:alburdat_dashboard/theme/theme.dart';
 
 class ManualDosisCardWidget extends StatefulWidget {
   final MqttService mqtt;
+  final String? activeDeviceId; // Tambahan: Menerima ID alat yang aktif
 
-  const ManualDosisCardWidget({super.key, required this.mqtt});
+  const ManualDosisCardWidget({
+    super.key, 
+    required this.mqtt,
+    required this.activeDeviceId, // Wajib diisi dari pemanggilnya
+  });
 
   @override
   State<ManualDosisCardWidget> createState() => _ManualDosisCardWidgetState();
@@ -36,6 +41,12 @@ class _ManualDosisCardWidgetState extends State<ManualDosisCardWidget> {
   }
 
   void _applyDosis() async {
+    // 1. Validasi keberadaan alat
+    if (widget.activeDeviceId == null) {
+      _showFeedback('Tidak ada alat yang dipilih.', isError: true);
+      return;
+    }
+
     setState(() => _isLoading = true);
 
     final text = _manualDosisController.text;
@@ -47,18 +58,23 @@ class _ManualDosisCardWidgetState extends State<ManualDosisCardWidget> {
       return;
     }
 
-    if (!widget.mqtt.isEspOnline) {
-      _showFeedback('ESP tidak aktif', isError: true);
+    // 2. Validasi status online menggunakan ID alat spesifik
+    if (!widget.mqtt.isEspOnline(widget.activeDeviceId!)) {
+      _showFeedback('Alat sedang offline', isError: true);
       setState(() => _isLoading = false);
       return;
     }
 
-    widget.mqtt.setDosis(dosis);
+    // 3. Kirim perintah dosis ke topik alat spesifik
+    widget.mqtt.setDosis(widget.activeDeviceId!, dosis);
+    
     _showFeedback('Dosis $dosis gram telah dikirim');
     _manualDosisController.clear();
 
     await Future.delayed(const Duration(milliseconds: 500));
-    setState(() => _isLoading = false);
+    if (mounted) {
+      setState(() => _isLoading = false);
+    }
   }
 
   @override
@@ -126,9 +142,9 @@ class _ManualDosisCardWidgetState extends State<ManualDosisCardWidget> {
               suffixText: 'g',
               errorText:
                   _manualDosisController.text.isNotEmpty &&
-                      double.tryParse(_manualDosisController.text) == null
-                  ? 'Format tidak valid'
-                  : null,
+                          double.tryParse(_manualDosisController.text) == null
+                      ? 'Format tidak valid'
+                      : null,
             ),
             onChanged: (value) => setState(() {}),
           ),
