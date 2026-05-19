@@ -44,27 +44,28 @@ class DeviceOnboardingService {
   /// HP harus kembali terhubung ke internet normal saat fungsi ini dipanggil
   Future<void> claimDeviceToCloud(String deviceId, String customName) async {
     try {
-      // Memanggil Supabase Edge Function 'claim-device' yang sudah kita buat sebelumnya
-      final response = await _supabase.functions.invoke(
-        'claim-device',
-        body: {
-          'device_id': deviceId,
-          'device_name': customName,
-        },
-      );
-
-      if (response.status == 200) {
-        // Berhasil terdaftar
-        return;
-      } else {
-        // Supabase mengembalikan respons error yang bisa dibaca (misal: "Alat sudah diklaim")
-        final errorData = response.data;
-        throw Exception(errorData['message'] ?? 'Gagal mendaftarkan alat ke server cloud.');
+      final user = _supabase.auth.currentUser;
+      
+      if (user == null) {
+        throw Exception('Sesi pengguna tidak valid. Silakan login ulang.');
       }
-    } on FunctionException catch (e) {
-      throw Exception('Kesalahan pada fungsi server: ${e.details}');
+
+      // Langsung menggunakan metode Insert ke database.
+      // Aturan RLS di Supabase akan memastikan data ini aman.
+      await _supabase.from('devices').insert({
+        'mac_address': deviceId,
+        'name': customName,
+        'user_id': user.id, // Kolom ini sekarang valid sesuai tabel baru kita
+      });
+
+    } on PostgrestException catch (e) {
+      // Menangkap error jika alat dengan MAC Address tersebut sudah pernah didaftarkan
+      if (e.code == '23505') { 
+        throw Exception('Alat dengan kode MAC ini sudah didaftarkan sebelumnya.');
+      }
+      throw Exception('Gagal mendaftarkan alat ke database: ${e.message}');
     } catch (e) {
-      throw Exception('Gagal menghubungi server database. Pastikan koneksi internet ponsel Anda sudah kembali aktif. Detail: $e');
+      throw Exception('Gagal menghubungi server database. Pastikan koneksi internet normal Anda sudah kembali aktif. Detail: $e');
     }
   }
 }

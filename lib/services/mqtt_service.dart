@@ -14,7 +14,7 @@ class MqttService extends ChangeNotifier {
   static const String mqttUser = String.fromEnvironment('MQTT_USER', defaultValue: 'perangkat_ferticore');
   static const String mqttPass = String.fromEnvironment('MQTT_PASS', defaultValue: 'sandi_aman_123');
   
-  final String clientIdentifier = 'AlburdatMobile_${DateTime.now().millisecondsSinceEpoch}';
+  final String clientIdentifier = 'FERTICORE_${DateTime.now().millisecondsSinceEpoch}';
 
   bool _isConnecting = false;
   bool get isConnecting => _isConnecting;
@@ -121,7 +121,7 @@ class MqttService extends ChangeNotifier {
     if (!_isConnected || _activeDeviceIds.isEmpty) return;
     
     for (String deviceId in _activeDeviceIds) {
-      String topic = 'alburdat/$deviceId/status';
+      String topic = 'ferticore/$deviceId/status';
       client.subscribe(topic, MqttQos.atLeastOnce);
       debugPrint('Subscribed to $topic');
     }
@@ -209,7 +209,7 @@ class MqttService extends ChangeNotifier {
     }
     
     // Topik tujuan spesifik alat
-    final String topicCommand = 'alburdat/$deviceId/command';
+    final String topicCommand = 'ferticore/$deviceId/command';
     
     final builder = MqttClientPayloadBuilder();
     builder.addString(jsonEncode(command));
@@ -220,6 +220,7 @@ class MqttService extends ChangeNotifier {
   // Wajib sertakan deviceId saat memanggil fungsi dari UI
   void setDosis(String deviceId, double value) => publishCommand(deviceId, {'set_dosis': value});
   void resetStats(String deviceId) => publishCommand(deviceId, {'reset_stats': true});
+  void resetWifi(String deviceId) => publishCommand(deviceId, {'reset_wifi': true});
 
   void disconnect() {
     _cancelReconnectTimer();

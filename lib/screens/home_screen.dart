@@ -2,11 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:alburdat_dashboard/services/mqtt_service.dart';
-import 'package:alburdat_dashboard/widgets/dosis_card_widget.dart';
-import 'package:alburdat_dashboard/widgets/statistik_card_widget.dart';
-import 'package:alburdat_dashboard/widgets/rekomendasi_card_widget.dart';
-import 'package:alburdat_dashboard/widgets/manual_dosis_card_widget.dart';
-import 'package:alburdat_dashboard/widgets/wifi_settings_card_widget.dart';
+import 'package:alburdat_dashboard/screens/dashboard_page.dart';
+import 'package:alburdat_dashboard/screens/rekomendasi_page.dart';
+import 'package:alburdat_dashboard/screens/manual_page.dart';
+import 'package:alburdat_dashboard/screens/wifi_page.dart';
 import 'package:alburdat_dashboard/screens/info_page.dart';
 import 'package:alburdat_dashboard/screens/add_device_screen.dart';
 import 'package:alburdat_dashboard/theme/theme.dart';
@@ -118,11 +117,6 @@ class _HomeScreenState extends State<HomeScreen>
   Widget build(BuildContext context) {
     final mqtt = Provider.of<MqttService>(context);
 
-    // Dapatkan status spesifik untuk alat yang sedang dipilih
-    final activeStatus = _selectedDeviceId != null
-        ? mqtt.getDeviceStatus(_selectedDeviceId!)
-        : null;
-
     return Scaffold(
       backgroundColor: AppTheme.backgroundLight,
       appBar: AppBar(
@@ -176,56 +170,31 @@ class _HomeScreenState extends State<HomeScreen>
               : TabBarView(
                   controller: _tabController,
                   children: [
-                    // Tab 1: Dosis Alat
-                    SingleChildScrollView(
-                      padding: const EdgeInsets.all(AppTheme.spacingLG),
-                      child: Column(
-                        children: [
-                          // Widget Pemilih Alat (Dropdown) jika punya lebih dari 1 alat
-                          if (_deviceIds.length > 1) _buildDeviceSelector(),
-                          const SizedBox(height: AppTheme.spacingMD),
-
-                          // Teruskan status alat spesifik ke Card
-                          DosisCardWidget(status: activeStatus),
-                          const SizedBox(height: AppTheme.spacingXL),
-                          StatistikCardWidget(
-                            status: activeStatus,
-                            mqtt: mqtt,
-                            activeDeviceId: _selectedDeviceId,
-                          ),
-                        ],
-                      ),
+                    // Tab 1: Dashboard Dosis & Statistik
+                    DashboardPage(
+                      activeDeviceId: _selectedDeviceId,
+                      deviceIds: _deviceIds,
+                      onDeviceChanged: (newValue) {
+                        setState(() {
+                          _selectedDeviceId = newValue;
+                        });
+                      },
                     ),
                     // Tab 2: Rekomendasi Dosis
-                    SingleChildScrollView(
-                      padding: const EdgeInsets.all(AppTheme.spacingLG),
-                      child: RekomendasiCardWidget(
-                        mqtt: mqtt,
-                        activeDeviceId: _selectedDeviceId,
-                      ),
+                    RekomendasiPage(
+                      activeDeviceId: _selectedDeviceId,
                     ),
                     // Tab 3: Dosis Manual
-                    SingleChildScrollView(
-                      padding: const EdgeInsets.all(AppTheme.spacingLG),
-                      child: ManualDosisCardWidget(
-                        mqtt: mqtt,
-                        activeDeviceId: _selectedDeviceId,
-                      ),
+                    ManualPage(
+                      activeDeviceId: _selectedDeviceId,
                     ),
                     // Tab 4: WiFi Settings
-                    SingleChildScrollView(
-                      padding: const EdgeInsets.all(AppTheme.spacingLG),
-                      child: WifiSettingsCardWidget(
-                        mqtt: mqtt,
-                        activeDeviceId: _selectedDeviceId,
-                      ),
+                    WifiPage(
+                      activeDeviceId: _selectedDeviceId,
                     ),
-                    // Tab 5: Informasi
-                    SingleChildScrollView(
-                      padding: const EdgeInsets.all(AppTheme.spacingLG),
-                      child: InfoPage(
-                        activeDeviceId: _selectedDeviceId,
-                      ),
+                    // Tab 5: Informasi & Akun
+                    InfoPage(
+                      activeDeviceId: _selectedDeviceId,
                     ),
                   ],
                 ),
@@ -248,39 +217,6 @@ class _HomeScreenState extends State<HomeScreen>
             Tab(icon: Icon(Icons.wifi_rounded), text: 'WiFi'),
             Tab(icon: Icon(Icons.info_rounded), text: 'Info'),
           ],
-        ),
-      ),
-    );
-  }
-
-  // Widget tambahan untuk memilih alat jika pengguna memiliki banyak perangkat
-  Widget _buildDeviceSelector() {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: AppTheme.spacingMD),
-      decoration: BoxDecoration(
-        color: AppTheme.surfaceLight,
-        borderRadius: BorderRadius.circular(AppTheme.radiusMD),
-        border: Border.all(color: AppTheme.borderColor),
-      ),
-      child: DropdownButtonHideUnderline(
-        child: DropdownButton<String>(
-          isExpanded: true,
-          value: _selectedDeviceId,
-          icon: const Icon(Icons.arrow_drop_down_rounded, color: AppTheme.primaryBlue),
-          onChanged: (String? newValue) {
-            setState(() {
-              _selectedDeviceId = newValue;
-            });
-          },
-          items: _deviceIds.map<DropdownMenuItem<String>>((String id) {
-            return DropdownMenuItem<String>(
-              value: id,
-              child: Text(
-                'Alat: $id',
-                style: Theme.of(context).textTheme.titleMedium,
-              ),
-            );
-          }).toList(),
         ),
       ),
     );

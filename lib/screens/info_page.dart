@@ -3,15 +3,15 @@ import 'package:provider/provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:alburdat_dashboard/services/mqtt_service.dart';
 import 'package:alburdat_dashboard/theme/theme.dart';
-import 'package:alburdat_dashboard/screens/splash_screen.dart'; // Pastikan path ini sesuai
+import 'package:alburdat_dashboard/screens/splash_screen.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 class InfoPage extends StatelessWidget {
-  final String? activeDeviceId; // Tambahan: Menerima ID alat yang sedang dipilih
+  final String? activeDeviceId;
 
   const InfoPage({
     super.key, 
-    this.activeDeviceId,
+    required this.activeDeviceId,
   });
 
   // Fungsi untuk menangani proses logout
@@ -55,81 +55,63 @@ class InfoPage extends StatelessWidget {
         ? 'Tidak ada alat' 
         : (isDeviceOnline ? 'Online' : 'Offline');
 
-    return Scaffold(
-      appBar: AppBar(
-        title: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text('Informasi', style: Theme.of(context).textTheme.headlineSmall),
-            Text(
-              'Tentang aplikasi dan status sistem',
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(color: AppTheme.textGrey),
-            ),
-          ],
-        ),
-        elevation: 0,
-        backgroundColor: AppTheme.surfaceLight,
-        foregroundColor: AppTheme.textDark,
-      ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(AppTheme.spacingLG),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // ================= APP INFO =================
-            _appInfo(context),
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(AppTheme.spacingLG),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // ================= APP INFO =================
+          _appInfo(context),
 
-            const SizedBox(height: AppTheme.spacingXL),
+          const SizedBox(height: AppTheme.spacingXL),
 
-            // ================= AKUN PENGGUNA =================
-            Text('Akun Pengguna', style: Theme.of(context).textTheme.titleLarge),
-            const SizedBox(height: AppTheme.spacingLG),
-            _buildAccountCard(context),
+          // ================= AKUN PENGGUNA =================
+          Text('Akun Pengguna', style: Theme.of(context).textTheme.titleLarge),
+          const SizedBox(height: AppTheme.spacingLG),
+          _buildAccountCard(context),
 
-            const SizedBox(height: AppTheme.spacingXL),
+          const SizedBox(height: AppTheme.spacingXL),
 
-            // ================= FEATURES =================
-            Text('Fitur Utama', style: Theme.of(context).textTheme.titleLarge),
-            const SizedBox(height: AppTheme.spacingLG),
-            ..._buildFeatures(context),
+          // ================= FEATURES =================
+          Text('Fitur Utama', style: Theme.of(context).textTheme.titleLarge),
+          const SizedBox(height: AppTheme.spacingLG),
+          ..._buildFeatures(context),
 
-            const SizedBox(height: AppTheme.spacingXL),
+          const SizedBox(height: AppTheme.spacingXL),
 
-            // ================= STATUS =================
-            Text('Status Sistem', style: Theme.of(context).textTheme.titleLarge),
-            const SizedBox(height: AppTheme.spacingLG),
-            Row(
-              children: [
-                Expanded(
-                  child: _buildStatusCard(
-                    title: 'MQTT Broker',
-                    status: mqtt.isConnected ? 'Terhubung' : 'Tidak Terhubung',
-                    isActive: mqtt.isConnected,
-                    icon: Icons.cloud_rounded,
-                  ),
+          // ================= STATUS =================
+          Text('Status Sistem', style: Theme.of(context).textTheme.titleLarge),
+          const SizedBox(height: AppTheme.spacingLG),
+          Row(
+            children: [
+              Expanded(
+                child: _buildStatusCard(
+                  title: 'MQTT Broker',
+                  status: mqtt.isConnected ? 'Terhubung' : 'Tidak Terhubung',
+                  isActive: mqtt.isConnected,
+                  icon: Icons.cloud_rounded,
                 ),
-                const SizedBox(width: AppTheme.spacingLG),
-                Expanded(
-                  child: _buildStatusCard(
-                    title: 'ESP Device',
-                    status: deviceStatusText,
-                    isActive: isDeviceOnline,
-                    icon: Icons.router_rounded,
-                  ),
+              ),
+              const SizedBox(width: AppTheme.spacingLG),
+              Expanded(
+                child: _buildStatusCard(
+                  title: 'ESP Device',
+                  status: deviceStatusText,
+                  isActive: isDeviceOnline,
+                  icon: Icons.router_rounded,
                 ),
-              ],
-            ),
+              ),
+            ],
+          ),
 
-            const SizedBox(height: AppTheme.spacingXL),
+          const SizedBox(height: AppTheme.spacingXL),
 
-            // ================= VERSION =================
-            _versionCard(context),
+          // ================= VERSION =================
+          _versionCard(context),
 
-            const SizedBox(height: 32),
-          ],
-        ),
+          const SizedBox(height: 32),
+        ],
       ),
-      backgroundColor: AppTheme.backgroundLight,
     );
   }
 
